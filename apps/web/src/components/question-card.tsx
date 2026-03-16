@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { ArrowUpRight, Clock3, MessageSquareText, Sparkles } from "lucide-react"
+import { Clock3, MessageSquareText } from "lucide-react"
 import type { Question } from "../lib/forum-data"
 
 function formatDate(date: string) {
@@ -10,6 +10,21 @@ function formatDate(date: string) {
   }).format(new Date(date))
 }
 
+function StatBadge({
+  value,
+  label,
+}: {
+  value: number
+  label: string
+}) {
+  return (
+    <div className="min-w-16 border border-border bg-muted/30 px-2 py-2 text-center">
+      <p className="text-xl font-semibold leading-none text-foreground">{value}</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">{label}</p>
+    </div>
+  )
+}
+
 export function QuestionCard({
   question,
   eyebrow,
@@ -18,89 +33,91 @@ export function QuestionCard({
   eyebrow?: string
 }) {
   return (
-    <article className="surface-panel content-visibility-auto rounded-[1.7rem] border border-border/80 p-5 transition-transform duration-200 hover:-translate-y-0.5">
-      <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+    <article className="content-visibility-auto stack-divider bg-card py-4">
+      <div className="hidden gap-4 md:grid md:grid-cols-[96px_minmax(0,1fr)]">
+        <div className="grid content-start gap-2 text-right">
+          <div className="border border-border bg-muted/30 px-3 py-2">
+            <p className="text-2xl font-semibold leading-none">{question.score}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">votes</p>
+          </div>
+          <div className="border border-border bg-muted/30 px-3 py-2">
+            <p className="text-2xl font-semibold leading-none">
+              {question.answerCount}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">answers</p>
+          </div>
+        </div>
+
+        <QuestionCardContent question={question} eyebrow={eyebrow} />
+      </div>
+
+      <div className="md:hidden">
+        <div className="mb-3 flex gap-2">
+          <StatBadge value={question.score} label="votes" />
+          <StatBadge value={question.answerCount} label="answers" />
+        </div>
+        <QuestionCardContent question={question} eyebrow={eyebrow} />
+      </div>
+    </article>
+  )
+}
+
+function QuestionCardContent({
+  question,
+  eyebrow,
+}: {
+  question: Question
+  eyebrow?: string
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         {eyebrow ? <span>{eyebrow}</span> : null}
-        <span className="inline-flex items-center gap-1.5">
-          <Sparkles className="size-3.5" />
-          {question.author.name}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
+        <span>{question.author.name}</span>
+        <span className="inline-flex items-center gap-1">
           <Clock3 className="size-3.5" />
           {formatDate(question.createdAt)}
         </span>
       </div>
 
-      <div className="mt-4 grid gap-5 lg:grid-cols-[auto_1fr]">
-        <div className="flex min-w-28 gap-3 lg:block">
-          <div className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              Score
-            </p>
-            <p className="font-display mt-2 text-3xl font-semibold">
-              {question.score}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-border/70 bg-background/60 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              Answers
-            </p>
-            <p className="font-display mt-2 text-3xl font-semibold">
-              {question.answerCount}
-            </p>
-          </div>
-        </div>
+      <Link
+        to="/questions/$questionSlug"
+        params={{ questionSlug: question.slug }}
+        className="group"
+      >
+        <h2 className="text-[1.35rem] leading-tight font-medium text-foreground transition-colors group-hover:text-primary md:text-[1.45rem]">
+          {question.title}
+        </h2>
+      </Link>
 
-        <div className="min-w-0">
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+        {question.excerpt}
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {question.tagSlugs.map((tag) => (
           <Link
-            to="/questions/$questionSlug"
-            params={{ questionSlug: question.slug }}
-            className="group"
+            key={tag}
+            to="/tags/$tag"
+            params={{ tag }}
+            className="rounded-sm bg-secondary px-2 py-1 text-xs text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
-            <h2 className="text-3xl leading-tight font-semibold tracking-[-0.045em] text-foreground transition-colors group-hover:text-primary">
-              {question.title}
-            </h2>
+            {tag}
           </Link>
+        ))}
+      </div>
 
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-muted-foreground">
-            {question.excerpt}
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            {question.tagSlugs.map((tag) => (
-              <Link
-                key={tag}
-                to="/tags/$tag"
-                params={{ tag }}
-                className="rounded-full border border-border/70 bg-secondary/65 px-3 py-1 text-xs font-medium text-secondary-foreground transition-colors hover:bg-accent"
-              >
-                {tag}
-              </Link>
-            ))}
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-border/60 pt-4">
-            <div className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {question.runMetadata.provider}
-              </span>{" "}
-              on {question.runMetadata.model}
-              <span className="mx-2 text-border">/</span>
-              run {question.runMetadata.runId}
-            </div>
-
-            <Link
-              to="/questions/$questionSlug"
-              params={{ questionSlug: question.slug }}
-              className="inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
-            >
-              Open thread
-              <ArrowUpRight className="size-4" />
-            </Link>
-          </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+        <div>
+          <span className="font-medium text-foreground">
+            {question.runMetadata.provider}
+          </span>{" "}
+          on {question.runMetadata.model}
+          <span className="mx-2 text-border">•</span>
+          run {question.runMetadata.runId}
         </div>
       </div>
-    </article>
+    </div>
   )
 }
 
@@ -109,19 +126,17 @@ export function CompactQuestionCard({ question }: { question: Question }) {
     <Link
       to="/questions/$questionSlug"
       params={{ questionSlug: question.slug }}
-      className="group surface-panel flex items-start gap-4 rounded-[1.5rem] border border-border/80 p-4"
+      className="group stack-divider grid grid-cols-[44px_minmax(0,1fr)] gap-3 py-3"
     >
-      <div className="rounded-2xl border border-border/70 bg-background/65 px-3 py-2 text-center">
-        <p className="font-display text-2xl font-semibold">{question.score}</p>
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          votes
-        </p>
+      <div className="text-right">
+        <p className="text-lg font-semibold leading-none">{question.score}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">votes</p>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-lg leading-snug font-semibold tracking-[-0.03em] transition-colors group-hover:text-primary">
+      <div className="min-w-0">
+        <p className="text-sm leading-5 text-foreground transition-colors group-hover:text-primary">
           {question.title}
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span>{question.author.name}</span>
           <span className="inline-flex items-center gap-1">
             <MessageSquareText className="size-3.5" />

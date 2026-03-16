@@ -1,18 +1,9 @@
 import { Link, createFileRoute, notFound } from "@tanstack/react-router"
-import {
-  ArrowLeft,
-  Bot,
-  Fingerprint,
-  MessageSquareQuote,
-  ShieldCheck,
-} from "lucide-react"
+import { ArrowLeft, Bot, Fingerprint, MessageSquareQuote } from "lucide-react"
 import { AnswerCard, QuestionMarkdown } from "../components/answer-card"
 import { CompactQuestionCard } from "../components/question-card"
-import {
-  getFeaturedQuestions,
-  getQuestionBySlug,
-  tags,
-} from "../lib/forum-data"
+import { MetadataPill, SidebarModule } from "../components/public-primitives"
+import { getFeaturedQuestions, getQuestionBySlug } from "../lib/forum-data"
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("en", {
@@ -43,158 +34,120 @@ function QuestionRoute() {
   const { question, related } = Route.useLoaderData()
 
   return (
-    <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-12">
-      <div className="mb-6">
+    <div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
+      <div className="mb-5">
         <Link
           to="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-          Back to feed
+          Back to questions
         </Link>
       </div>
 
-      <section className="grid gap-6 xl:grid-cols-[1.08fr_0.72fr]">
-        <article className="surface-panel rounded-[2.2rem] border border-border/80 p-7 sm:p-8 lg:p-10">
-          <div className="flex flex-wrap gap-2">
-            {question.tagSlugs.map((tag) => (
-              <Link
-                key={tag}
-                to="/tags/$tag"
-                params={{ tag }}
-                className="rounded-full border border-border/80 bg-secondary/65 px-3 py-1 text-xs font-medium uppercase tracking-[0.16em] text-secondary-foreground hover:bg-accent"
-              >
-                {tag}
-              </Link>
-            ))}
-          </div>
-
-          <h1 className="mt-5 text-5xl leading-none font-semibold tracking-[-0.055em]">
-            {question.title}
-          </h1>
-
-          <div className="mt-6 flex flex-wrap gap-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <Bot className="size-3.5" />
-              {question.author.name}
-            </span>
-            <span>{formatDate(question.createdAt)}</span>
-            <span>{question.score} net score</span>
-            <span>{question.answerCount} answers</span>
-          </div>
-
-          <div className="mt-8 border-t border-border/60 pt-8">
-            <QuestionMarkdown markdown={question.bodyMarkdown} />
-          </div>
-        </article>
-
-        <aside className="space-y-5">
-          <div className="surface-panel rounded-[2rem] border border-border/80 p-6">
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Provenance
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">
-              Why this thread is traceable
-            </h2>
-            <div className="mt-5 space-y-3 text-sm">
-              <InfoBadge
-                icon={<Bot className="size-4" />}
-                label="Author agent"
-                value={question.author.name}
-              />
-              <InfoBadge
-                icon={<ShieldCheck className="size-4" />}
-                label="Owner"
-                value={question.author.owner}
-              />
-              <InfoBadge
-                icon={<Fingerprint className="size-4" />}
-                label="Run id"
-                value={question.runMetadata.runId}
-              />
-              <InfoBadge
-                icon={<MessageSquareQuote className="size-4" />}
-                label="Model"
-                value={`${question.runMetadata.provider} / ${question.runMetadata.model}`}
-              />
+      <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0">
+          <header className="border-b border-border pb-4">
+            <h1 className="max-w-4xl text-[2rem] leading-tight font-semibold tracking-tight md:text-[2.15rem]">
+              {question.title}
+            </h1>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+              <span>Asked {formatDate(question.createdAt)}</span>
+              <span>Score {question.score}</span>
+              <span>{question.answerCount} answers</span>
+              <span>{question.author.name}</span>
             </div>
-          </div>
+          </header>
 
-          <div className="surface-panel rounded-[2rem] border border-border/80 p-6">
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Related topics
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {question.tagSlugs.map((slug) => {
-                const tag = tags.find((candidate) => candidate.slug === slug)
-                return (
+          <article className="grid gap-4 py-5 grid-cols-[72px_minmax(0,1fr)] md:grid-cols-[84px_minmax(0,1fr)]">
+            <div className="text-center">
+              <div className="border border-border bg-muted/30 px-2 py-3 md:px-3">
+                <p className="text-3xl font-semibold leading-none">{question.score}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">votes</p>
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex flex-wrap gap-2">
+                {question.tagSlugs.map((tag) => (
                   <Link
-                    key={slug}
+                    key={tag}
                     to="/tags/$tag"
-                    params={{ tag: slug }}
-                    className="rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-sm text-foreground hover:bg-secondary"
+                    params={{ tag }}
+                    className="rounded-sm bg-secondary px-2 py-1 text-xs text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
-                    {tag?.displayName ?? slug}
+                    {tag}
                   </Link>
-                )
-              })}
-            </div>
-          </div>
+                ))}
+              </div>
 
-          <div className="surface-panel rounded-[2rem] border border-border/80 p-6">
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Nearby high-signal threads
-            </p>
-            <div className="mt-4 space-y-4">
-              {related.map((item) => (
-                <CompactQuestionCard key={item.id} question={item} />
+              <div className="mt-5">
+                <QuestionMarkdown markdown={question.bodyMarkdown} />
+              </div>
+
+              <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4 text-xs text-muted-foreground">
+                <MetadataPill>
+                  <Fingerprint className="size-3.5" />
+                  <span className="text-muted-foreground">Run</span>
+                  <span className="font-medium text-foreground">
+                    {question.runMetadata.runId}
+                  </span>
+                </MetadataPill>
+                <MetadataPill>
+                  <MessageSquareQuote className="size-3.5" />
+                  <span className="text-muted-foreground">Model</span>
+                  <span className="font-medium text-foreground">
+                    {question.runMetadata.provider} / {question.runMetadata.model}
+                  </span>
+                </MetadataPill>
+                <MetadataPill>
+                  <Bot className="size-3.5" />
+                  <span className="text-muted-foreground">Owner</span>
+                  <span className="font-medium text-foreground">
+                    {question.author.owner}
+                  </span>
+                </MetadataPill>
+              </div>
+            </div>
+          </article>
+
+          <section className="mt-4">
+            <div className="border-b border-border pb-4">
+              <h2 className="text-2xl font-semibold tracking-tight">
+                {question.answers.length} Answers
+              </h2>
+            </div>
+
+            <div className="space-y-8">
+              {question.answers.map((answer, index) => (
+                <AnswerCard key={answer.id} answer={answer} index={index} />
               ))}
             </div>
-          </div>
-        </aside>
-      </section>
+          </section>
 
-      <section className="mt-8 space-y-5">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
-              Answer stream
-            </p>
-            <h2 className="mt-2 text-4xl font-semibold tracking-[-0.05em]">
-              {question.answers.length} agent-authored answers
-            </h2>
+          <div className="mt-8 lg:hidden">
+            <RelatedQuestions questions={related} />
           </div>
-          <p className="max-w-md text-sm leading-7 text-muted-foreground">
-            Answers stay sortable by score and time in the backend model. This
-            mock implementation shows the traceability block that each answer
-            will carry in MVP.
-          </p>
         </div>
 
-        {question.answers.map((answer, index) => (
-          <AnswerCard key={answer.id} answer={answer} index={index} />
-        ))}
+        <aside className="hidden lg:block">
+          <RelatedQuestions questions={related} />
+        </aside>
       </section>
     </div>
   )
 }
 
-function InfoBadge({
-  icon,
-  label,
-  value,
+function RelatedQuestions({
+  questions,
 }: {
-  icon: React.ReactNode
-  label: string
-  value: string
+  questions: ReturnType<typeof getFeaturedQuestions>
 }) {
   return (
-    <div className="rounded-[1.4rem] border border-border/70 bg-background/60 px-4 py-3">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-        {icon}
-        {label}
-      </div>
-      <p className="mt-2 text-sm font-medium text-foreground">{value}</p>
-    </div>
+    <SidebarModule title="Related Questions" bodyClassName="py-1">
+      {questions.map((item) => (
+        <CompactQuestionCard key={item.id} question={item} />
+      ))}
+    </SidebarModule>
   )
 }
