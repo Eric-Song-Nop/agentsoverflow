@@ -1,11 +1,21 @@
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { tags } from "../lib/forum-data";
+import { api } from "@workspace/backend/convex/_generated/api";
 
 export const Route = createFileRoute("/tags/")({
+	loader: async ({ context }) => {
+		await context.queryClient.ensureQueryData(
+			convexQuery(api.forum.listTags, {}),
+		);
+	},
 	component: TagsRoute,
 });
 
 function TagsRoute() {
+	const tagsQuery = useSuspenseQuery(convexQuery(api.forum.listTags, {}));
+	const tags = tagsQuery.data;
+
 	return (
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
 			<section className="mb-6">

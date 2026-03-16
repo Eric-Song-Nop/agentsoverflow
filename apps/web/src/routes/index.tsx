@@ -8,12 +8,31 @@ import {
 	SidebarModule,
 } from "../components/public-primitives";
 import { CompactQuestionCard, QuestionCard } from "../components/question-card";
-import { getFeedQuestions, getHomepageStats, tags } from "../lib/forum-data";
+import type { FeedSort } from "../lib/forum-data";
 import { parseFeedSearch } from "../lib/search-params";
+
+function getListQuestionsArgs(sort: FeedSort) {
+	return { sort };
+}
 
 export const Route = createFileRoute("/")({
 	validateSearch: parseFeedSearch,
-	loader: async () => {
+	loaderDeps: ({ search }) => ({
+		sort: search.sort ?? "latest",
+	}),
+	loader: async ({ context, deps }) => {
+		await Promise.all([
+			context.queryClient.ensureQueryData(
+				convexQuery(api.forum.listQuestions, getListQuestionsArgs(deps.sort)),
+			),
+			context.queryClient.ensureQueryData(
+				convexQuery(api.forum.getHomepageStats, {}),
+			),
+			context.queryClient.ensureQueryData(convexQuery(api.forum.listTags, {})),
+			context.queryClient.ensureQueryData(
+				convexQuery(api.forum.listFeaturedQuestions, { limit: 3 }),
+			),
+		]);
 	},
 	component: HomePage,
 });
@@ -26,8 +45,20 @@ const sortTabs = [
 function HomePage() {
 	const search = Route.useSearch();
 	const sort = search.sort ?? "latest";
-	const feedQuestions = getFeedQuestions({ sort });
-	const stats = getHomepageStats();
+	const feedQuestionsQuery = useSuspenseQuery(
+		convexQuery(api.forum.listQuestions, getListQuestionsArgs(sort)),
+	);
+	const statsQuery = useSuspenseQuery(
+		convexQuery(api.forum.getHomepageStats, {}),
+	);
+	const tagsQuery = useSuspenseQuery(convexQuery(api.forum.listTags, {}));
+	const featuredQuestionsQuery = useSuspenseQuery(
+		convexQuery(api.forum.listFeaturedQuestions, { limit: 3 }),
+	);
+	const feedQuestions = feedQuestionsQuery.data;
+	const stats = statsQuery.data;
+	const tags = tagsQuery.data;
+	const featuredQuestions = featuredQuestionsQuery.data;
 
 	return (
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
@@ -87,7 +118,7 @@ function HomePage() {
 					</SidebarModule>
 
 					<SidebarModule title="Featured Threads" bodyClassName="py-1">
-						{feedQuestions.slice(0, 3).map((question) => (
+						{featuredQuestions.map((question) => (
 							<CompactQuestionCard key={question.id} question={question} />
 						))}
 					</SidebarModule>

@@ -1,25 +1,39 @@
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { api } from "@workspace/backend/convex/_generated/api";
 import { QuestionCard } from "../components/question-card";
-import { getFeedQuestions, getTagBySlug } from "../lib/forum-data";
 
 export const Route = createFileRoute("/tags/$tag")({
-	loader: ({ params }) => {
-		const tag = getTagBySlug(params.tag);
-
+	loader: async ({ context, params }) => {
+		const tag = await context.queryClient.ensureQueryData(
+			convexQuery(api.forum.getTag, { slug: params.tag }),
+		);
 		if (!tag) {
 			throw notFound();
 		}
 
-		return {
-			tag,
-			questions: getFeedQuestions({ tag: params.tag, sort: "top" }),
-		};
+		await context.queryClient.ensureQueryData(
+			convexQuery(api.forum.listQuestions, { sort: "top", tag: params.tag }),
+		);
 	},
 	component: TagRoute,
 });
 
 function TagRoute() {
-	const { tag, questions } = Route.useLoaderData();
+	const { tag: tagSlug } = Route.useParams();
+	const tagQuery = useSuspenseQuery(
+		convexQuery(api.forum.getTag, { slug: tagSlug }),
+	);
+	const questionsQuery = useSuspenseQuery(
+		convexQuery(api.forum.listQuestions, { sort: "top", tag: tagSlug }),
+	);
+	const tag = tagQuery.data;
+	const questions = questionsQuery.data;
+
+	if (!tag) {
+		throw notFound();
+	}
 
 	return (
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">

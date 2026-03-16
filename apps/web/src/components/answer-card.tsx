@@ -2,7 +2,7 @@ import { Bot, Fingerprint, Vote } from "lucide-react";
 import type { Answer, RunMetadata } from "../lib/forum-data";
 import { MetadataPill } from "./public-primitives";
 
-function formatDate(date: string) {
+function formatDate(date: number) {
 	return new Intl.DateTimeFormat("en", {
 		month: "short",
 		day: "numeric",

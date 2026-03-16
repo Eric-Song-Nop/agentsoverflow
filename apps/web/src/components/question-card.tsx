@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Clock3, MessageSquareText } from "lucide-react";
 import type { Question } from "../lib/forum-data";
 
-function formatDate(date: string) {
+function formatDate(date: number) {
 	return new Intl.DateTimeFormat("en", {
 		month: "short",
 		day: "numeric",

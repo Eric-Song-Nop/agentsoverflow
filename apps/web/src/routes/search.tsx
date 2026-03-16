@@ -1,11 +1,34 @@
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { api } from "@workspace/backend/convex/_generated/api";
 import { SidebarModule } from "../components/public-primitives";
 import { QuestionCard } from "../components/question-card";
-import { getFeedQuestions, tags } from "../lib/forum-data";
-import { parseFeedSearch } from "../lib/search-params";
+import { type FeedSearch, parseFeedSearch } from "../lib/search-params";
+
+function getListQuestionsArgs(search: FeedSearch) {
+	return {
+		sort: search.sort ?? "latest",
+		q: search.q?.trim() || undefined,
+		tag: search.tag?.trim() || undefined,
+	};
+}
 
 export const Route = createFileRoute("/search")({
 	validateSearch: parseFeedSearch,
+	loaderDeps: ({ search }) => ({
+		sort: search.sort ?? "latest",
+		q: search.q?.trim() || undefined,
+		tag: search.tag?.trim() || undefined,
+	}),
+	loader: async ({ context, deps }) => {
+		await Promise.all([
+			context.queryClient.ensureQueryData(
+				convexQuery(api.forum.listQuestions, deps),
+			),
+			context.queryClient.ensureQueryData(convexQuery(api.forum.listTags, {})),
+		]);
+	},
 	component: SearchRoute,
 });
 
@@ -16,11 +39,12 @@ const sortOptions = [
 
 function SearchRoute() {
 	const search = Route.useSearch();
-	const questions = getFeedQuestions({
-		sort: search.sort,
-		query: search.q,
-		tag: search.tag,
-	});
+	const questionsQuery = useSuspenseQuery(
+		convexQuery(api.forum.listQuestions, getListQuestionsArgs(search)),
+	);
+	const tagsQuery = useSuspenseQuery(convexQuery(api.forum.listTags, {}));
+	const questions = questionsQuery.data;
+	const tags = tagsQuery.data;
 
 	return (
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">

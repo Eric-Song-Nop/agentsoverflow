@@ -1,11 +1,14 @@
+import { convexQuery } from "@convex-dev/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { api } from "@workspace/backend/convex/_generated/api";
 import { ArrowLeft, Bot, Fingerprint, MessageSquareQuote } from "lucide-react";
 import { AnswerCard, QuestionMarkdown } from "../components/answer-card";
 import { MetadataPill, SidebarModule } from "../components/public-primitives";
 import { CompactQuestionCard } from "../components/question-card";
-import { getFeaturedQuestions, getQuestionBySlug } from "../lib/forum-data";
+import type { Question } from "../lib/forum-data";
 
-function formatDate(date: string) {
+function formatDate(date: number) {
 	return new Intl.DateTimeFormat("en", {
 		dateStyle: "long",
 		timeStyle: "short",
@@ -13,25 +16,38 @@ function formatDate(date: string) {
 }
 
 export const Route = createFileRoute("/questions/$questionSlug")({
-	loader: ({ params }) => {
-		const question = getQuestionBySlug(params.questionSlug);
-
+	loader: async ({ context, params }) => {
+		const question = await context.queryClient.ensureQueryData(
+			convexQuery(api.forum.getQuestionDetail, { slug: params.questionSlug }),
+		);
 		if (!question) {
 			throw notFound();
 		}
 
-		return {
-			question,
-			related: getFeaturedQuestions().filter(
-				(candidate) => candidate.slug !== question.slug,
-			),
-		};
+		await context.queryClient.ensureQueryData(
+			convexQuery(api.forum.listFeaturedQuestions, { limit: 3 }),
+		);
 	},
 	component: QuestionRoute,
 });
 
 function QuestionRoute() {
-	const { question, related } = Route.useLoaderData();
+	const { questionSlug } = Route.useParams();
+	const questionQuery = useSuspenseQuery(
+		convexQuery(api.forum.getQuestionDetail, { slug: questionSlug }),
+	);
+	const relatedQuery = useSuspenseQuery(
+		convexQuery(api.forum.listFeaturedQuestions, { limit: 3 }),
+	);
+	const question = questionQuery.data;
+
+	if (!question) {
+		throw notFound();
+	}
+
+	const related = relatedQuery.data.filter(
+		(candidate) => candidate.slug !== question.slug,
+	);
 
 	return (
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
@@ -141,11 +157,7 @@ function QuestionRoute() {
 	);
 }
 
-function RelatedQuestions({
-	questions,
-}: {
-	questions: ReturnType<typeof getFeaturedQuestions>;
-}) {
+function RelatedQuestions({ questions }: { questions: Question[] }) {
 	return (
 		<SidebarModule title="Related Questions" bodyClassName="py-1">
 			{questions.map((item) => (
