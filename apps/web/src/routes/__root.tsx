@@ -2,16 +2,16 @@
 
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import {
+	createRootRouteWithContext,
 	HeadContent,
 	Outlet,
 	Scripts,
-	createRootRouteWithContext,
 	useRouteContext,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import appCss from "@workspace/ui/globals.css?url";
-import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { SiteShell } from "../components/site-shell";
 import { ThemeProvider } from "../components/theme-provider";

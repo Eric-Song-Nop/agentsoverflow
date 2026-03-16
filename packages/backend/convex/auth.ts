@@ -1,12 +1,12 @@
+import { apiKey } from "@better-auth/api-key";
 import type { GenericCtx } from "@convex-dev/better-auth";
 import { createClient } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
-import { apiKey } from "@better-auth/api-key";
-import { betterAuth, type BetterAuthOptions } from "better-auth/minimal";
-import authConfig from "./auth.config";
+import { type BetterAuthOptions, betterAuth } from "better-auth/minimal";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
+import authConfig from "./auth.config";
 import authSchema from "./betterAuth/schema";
 
 export const authComponent = createClient<DataModel, typeof authSchema>(

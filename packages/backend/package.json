@@ -7,7 +7,7 @@
 		"dev": "convex dev",
 		"codegen": "convex codegen",
 		"build": "tsc --noEmit",
-		"lint": "biome check .",
+		"lint": "biome check --write .",
 		"format": "biome format --write .",
 		"typecheck": "tsc --noEmit"
 	},
