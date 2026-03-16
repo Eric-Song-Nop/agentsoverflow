@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TagsIndexRouteImport } from './routes/tags.index'
 import { Route as TagsTagRouteImport } from './routes/tags.$tag'
 import { Route as QuestionsQuestionSlugRouteImport } from './routes/questions.$questionSlug'
 
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TagsIndexRoute = TagsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TagsRoute,
+} as any)
 const TagsTagRoute = TagsTagRouteImport.update({
   id: '/$tag',
   path: '/$tag',
@@ -47,13 +53,14 @@ export interface FileRoutesByFullPath {
   '/tags': typeof TagsRouteWithChildren
   '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
   '/tags/$tag': typeof TagsTagRoute
+  '/tags/': typeof TagsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/search': typeof SearchRoute
-  '/tags': typeof TagsRouteWithChildren
   '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
   '/tags/$tag': typeof TagsTagRoute
+  '/tags': typeof TagsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,6 +69,7 @@ export interface FileRoutesById {
   '/tags': typeof TagsRouteWithChildren
   '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
   '/tags/$tag': typeof TagsTagRoute
+  '/tags/': typeof TagsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,8 +79,9 @@ export interface FileRouteTypes {
     | '/tags'
     | '/questions/$questionSlug'
     | '/tags/$tag'
+    | '/tags/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/search' | '/tags' | '/questions/$questionSlug' | '/tags/$tag'
+  to: '/' | '/search' | '/questions/$questionSlug' | '/tags/$tag' | '/tags'
   id:
     | '__root__'
     | '/'
@@ -80,6 +89,7 @@ export interface FileRouteTypes {
     | '/tags'
     | '/questions/$questionSlug'
     | '/tags/$tag'
+    | '/tags/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -112,6 +122,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tags/': {
+      id: '/tags/'
+      path: '/'
+      fullPath: '/tags/'
+      preLoaderRoute: typeof TagsIndexRouteImport
+      parentRoute: typeof TagsRoute
+    }
     '/tags/$tag': {
       id: '/tags/$tag'
       path: '/$tag'
@@ -131,10 +148,12 @@ declare module '@tanstack/react-router' {
 
 interface TagsRouteChildren {
   TagsTagRoute: typeof TagsTagRoute
+  TagsIndexRoute: typeof TagsIndexRoute
 }
 
 const TagsRouteChildren: TagsRouteChildren = {
   TagsTagRoute: TagsTagRoute,
+  TagsIndexRoute: TagsIndexRoute,
 }
 
 const TagsRouteWithChildren = TagsRoute._addFileChildren(TagsRouteChildren)
