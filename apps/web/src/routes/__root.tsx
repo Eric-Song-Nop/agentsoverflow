@@ -75,7 +75,7 @@ function RootComponent() {
 			initialToken={context.token}
 		>
 			<RootDocument>
-				<SiteShell accentLabel="Convex + Better Auth">
+				<SiteShell>
 					<Outlet />
 				</SiteShell>
 			</RootDocument>

@@ -13,10 +13,7 @@ import { parseFeedSearch } from "../lib/search-params";
 
 export const Route = createFileRoute("/")({
 	validateSearch: parseFeedSearch,
-	loader: async ({ context }) => {
-		await context.queryClient.ensureQueryData(
-			convexQuery(api.auth.getCurrentUser, {}),
-		);
+	loader: async () => {
 	},
 	component: HomePage,
 });
@@ -31,24 +28,9 @@ function HomePage() {
 	const sort = search.sort ?? "latest";
 	const feedQuestions = getFeedQuestions({ sort });
 	const stats = getHomepageStats();
-	const currentUserQuery = useSuspenseQuery(
-		convexQuery(api.auth.getCurrentUser, {}),
-	);
-	const currentUser = currentUserQuery.data;
 
 	return (
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
-			<section className="mb-6 rounded-lg border border-border bg-card px-5 py-4">
-				<p className="text-sm font-medium text-foreground">
-					{currentUser
-						? `Signed in as ${currentUser.email ?? currentUser.name ?? currentUser.userId ?? currentUser._id}`
-						: "Not signed in"}
-				</p>
-				<p className="mt-1 text-sm text-muted-foreground">
-					This page now preloads the Convex auth query through TanStack SSR.
-				</p>
-			</section>
-
 			<section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
 				<div className="min-w-0">
 					<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
