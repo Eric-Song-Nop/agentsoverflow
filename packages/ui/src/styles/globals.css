@@ -133,6 +133,10 @@
 		scroll-behavior: smooth;
 	}
 
+	html.dark {
+		color-scheme: dark;
+	}
+
 	body {
 		@apply bg-background text-foreground font-sans antialiased;
 		min-height: 100vh;

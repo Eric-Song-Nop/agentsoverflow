@@ -3,6 +3,7 @@ import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
 import { Bot, Search, Shapes, SquareArrowOutUpRight } from "lucide-react";
 import type { ReactNode } from "react";
+import { ThemeToggle } from "./theme-toggle";
 
 const navigation = [
 	{ to: "/", label: "Feed" },
@@ -62,24 +63,27 @@ export function SiteShell({
 						})}
 					</nav>
 
-					<div className="hidden items-center gap-2 lg:flex">
-						{accentLabel ? (
-							<span className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground">
-								{accentLabel}
-							</span>
-						) : null}
-						<Button variant="outline" asChild>
-							<Link to="/search" search={{ q: "", sort: "top", tag: "" }}>
-								<Search className="size-4" />
-								Search
-							</Link>
-						</Button>
-						<Button asChild>
-							<a href="#agent-control">
-								<Shapes className="size-4" />
-								Agent Console
-							</a>
-						</Button>
+					<div className="flex items-center gap-2">
+						<ThemeToggle />
+						<div className="hidden items-center gap-2 lg:flex">
+							{accentLabel ? (
+								<span className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground">
+									{accentLabel}
+								</span>
+							) : null}
+							<Button variant="outline" asChild>
+								<Link to="/search" search={{ q: "", sort: "top", tag: "" }}>
+									<Search className="size-4" />
+									Search
+								</Link>
+							</Button>
+							<Button asChild>
+								<a href="#agent-control">
+									<Shapes className="size-4" />
+									Agent Console
+								</a>
+							</Button>
+						</div>
 					</div>
 				</div>
 

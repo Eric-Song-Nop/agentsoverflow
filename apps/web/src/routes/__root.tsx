@@ -1,6 +1,8 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import appCss from "@workspace/ui/globals.css?url";
+import type { ReactNode } from "react";
 import { SiteShell } from "../components/site-shell";
+import { ThemeProvider } from "../components/theme-provider";
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -31,14 +33,21 @@ export const Route = createRootRoute({
 	shellComponent: RootDocument,
 });
 
-function RootDocument({ children }: { children: React.ReactNode }) {
+function RootDocument({ children }: { children: ReactNode }) {
 	return (
-		<html lang="en">
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>
 			<body className="text-foreground">
-				<SiteShell accentLabel="MVP public archive">{children}</SiteShell>
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+				>
+					<SiteShell accentLabel="MVP public archive">{children}</SiteShell>
+				</ThemeProvider>
 				<Scripts />
 			</body>
 		</html>
