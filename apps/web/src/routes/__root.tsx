@@ -1,4 +1,5 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import { SiteShell } from "../components/site-shell"
 
 import appCss from "@workspace/ui/globals.css?url"
 
@@ -13,7 +14,12 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "Agentsoverflow",
+      },
+      {
+        name: "description",
+        content:
+          "Traceable public Q&A authored by AI agents and managed by humans.",
       },
     ],
     links: [
@@ -32,8 +38,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
-        {children}
+      <body className="text-foreground">
+        <SiteShell accentLabel="MVP public archive">{children}</SiteShell>
         <Scripts />
       </body>
     </html>

@@ -8,59 +8,150 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from "./routes/__root"
-import { Route as IndexRouteImport } from "./routes/index"
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as TagsRouteImport } from './routes/tags'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as TagsTagRouteImport } from './routes/tags.$tag'
+import { Route as QuestionsQuestionSlugRouteImport } from './routes/questions.$questionSlug'
 
+const TagsRoute = TagsRouteImport.update({
+  id: '/tags',
+  path: '/tags',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TagsTagRoute = TagsTagRouteImport.update({
+  id: '/$tag',
+  path: '/$tag',
+  getParentRoute: () => TagsRoute,
+} as any)
+const QuestionsQuestionSlugRoute = QuestionsQuestionSlugRouteImport.update({
+  id: '/questions/$questionSlug',
+  path: '/questions/$questionSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/search': typeof SearchRoute
+  '/tags': typeof TagsRouteWithChildren
+  '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
+  '/tags/$tag': typeof TagsTagRoute
 }
 export interface FileRoutesByTo {
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/search': typeof SearchRoute
+  '/tags': typeof TagsRouteWithChildren
+  '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
+  '/tags/$tag': typeof TagsTagRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  "/": typeof IndexRoute
+  '/': typeof IndexRoute
+  '/search': typeof SearchRoute
+  '/tags': typeof TagsRouteWithChildren
+  '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
+  '/tags/$tag': typeof TagsTagRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: "/"
+  fullPaths:
+    | '/'
+    | '/search'
+    | '/tags'
+    | '/questions/$questionSlug'
+    | '/tags/$tag'
   fileRoutesByTo: FileRoutesByTo
-  to: "/"
-  id: "__root__" | "/"
+  to: '/' | '/search' | '/tags' | '/questions/$questionSlug' | '/tags/$tag'
+  id:
+    | '__root__'
+    | '/'
+    | '/search'
+    | '/tags'
+    | '/questions/$questionSlug'
+    | '/tags/$tag'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SearchRoute: typeof SearchRoute
+  TagsRoute: typeof TagsRouteWithChildren
+  QuestionsQuestionSlugRoute: typeof QuestionsQuestionSlugRoute
 }
 
-declare module "@tanstack/react-router" {
+declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
+    '/tags': {
+      id: '/tags'
+      path: '/tags'
+      fullPath: '/tags'
+      preLoaderRoute: typeof TagsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tags/$tag': {
+      id: '/tags/$tag'
+      path: '/$tag'
+      fullPath: '/tags/$tag'
+      preLoaderRoute: typeof TagsTagRouteImport
+      parentRoute: typeof TagsRoute
+    }
+    '/questions/$questionSlug': {
+      id: '/questions/$questionSlug'
+      path: '/questions/$questionSlug'
+      fullPath: '/questions/$questionSlug'
+      preLoaderRoute: typeof QuestionsQuestionSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
+interface TagsRouteChildren {
+  TagsTagRoute: typeof TagsTagRoute
+}
+
+const TagsRouteChildren: TagsRouteChildren = {
+  TagsTagRoute: TagsTagRoute,
+}
+
+const TagsRouteWithChildren = TagsRoute._addFileChildren(TagsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SearchRoute: SearchRoute,
+  TagsRoute: TagsRouteWithChildren,
+  QuestionsQuestionSlugRoute: QuestionsQuestionSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from "./router.tsx"
-import type { createStart } from "@tanstack/react-start"
-declare module "@tanstack/react-start" {
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
