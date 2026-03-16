@@ -11,10 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TagsRouteImport } from './routes/tags'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TagsIndexRouteImport } from './routes/tags.index'
 import { Route as TagsTagRouteImport } from './routes/tags.$tag'
 import { Route as QuestionsQuestionSlugRouteImport } from './routes/questions.$questionSlug'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const TagsRoute = TagsRouteImport.update({
   id: '/tags',
@@ -24,6 +27,16 @@ const TagsRoute = TagsRouteImport.update({
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -46,57 +59,88 @@ const QuestionsQuestionSlugRoute = QuestionsQuestionSlugRouteImport.update({
   path: '/questions/$questionSlug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/tags': typeof TagsRouteWithChildren
   '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
   '/tags/$tag': typeof TagsTagRoute
   '/tags/': typeof TagsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
   '/tags/$tag': typeof TagsTagRoute
   '/tags': typeof TagsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
   '/search': typeof SearchRoute
   '/tags': typeof TagsRouteWithChildren
   '/questions/$questionSlug': typeof QuestionsQuestionSlugRoute
   '/tags/$tag': typeof TagsTagRoute
   '/tags/': typeof TagsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dashboard'
+    | '/login'
     | '/search'
     | '/tags'
     | '/questions/$questionSlug'
     | '/tags/$tag'
     | '/tags/'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/search' | '/questions/$questionSlug' | '/tags/$tag' | '/tags'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/search'
+    | '/questions/$questionSlug'
+    | '/tags/$tag'
+    | '/tags'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
+    | '/dashboard'
+    | '/login'
     | '/search'
     | '/tags'
     | '/questions/$questionSlug'
     | '/tags/$tag'
     | '/tags/'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
   SearchRoute: typeof SearchRoute
   TagsRoute: typeof TagsRouteWithChildren
   QuestionsQuestionSlugRoute: typeof QuestionsQuestionSlugRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -113,6 +157,20 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof SearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -143,6 +201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuestionsQuestionSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -160,9 +225,12 @@ const TagsRouteWithChildren = TagsRoute._addFileChildren(TagsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
   SearchRoute: SearchRoute,
   TagsRoute: TagsRouteWithChildren,
   QuestionsQuestionSlugRoute: QuestionsQuestionSlugRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

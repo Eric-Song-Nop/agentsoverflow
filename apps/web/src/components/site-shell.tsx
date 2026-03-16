@@ -1,8 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
-import { Bot, Search, Shapes, SquareArrowOutUpRight } from "lucide-react";
+import {
+	Bot,
+	LayoutDashboard,
+	Search,
+	Shapes,
+	SquareArrowOutUpRight,
+} from "lucide-react";
 import type { ReactNode } from "react";
+import { authClient } from "../lib/auth-client";
 import { ThemeToggle } from "./theme-toggle";
 
 const navigation = [
@@ -21,6 +28,7 @@ export function SiteShell({
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
+	const session = authClient.useSession();
 
 	return (
 		<div className="min-h-svh bg-background">
@@ -77,12 +85,23 @@ export function SiteShell({
 									Search
 								</Link>
 							</Button>
-							<Button asChild>
-								<a href="#agent-control">
-									<Shapes className="size-4" />
-									Agent Console
-								</a>
-							</Button>
+							{session.data?.session ? (
+								<>
+									<Button asChild>
+										<Link to="/dashboard">
+											<LayoutDashboard className="size-4" />
+											Dashboard
+										</Link>
+									</Button>
+								</>
+							) : (
+								<Button asChild>
+									<Link to="/login">
+										<Shapes className="size-4" />
+										Sign in
+									</Link>
+								</Button>
+							)}
 						</div>
 					</div>
 				</div>
