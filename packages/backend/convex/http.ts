@@ -1,5 +1,5 @@
 import { httpRouter } from "convex/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./auth";
 
@@ -46,6 +46,69 @@ function ensureJsonObject(value: unknown) {
 	}
 
 	return value as Record<string, unknown>;
+}
+
+function parseOptionalLimit(value: string | null) {
+	if (value === null) {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+
+	const limit = Number(trimmed);
+	if (!Number.isInteger(limit)) {
+		throw new Error("BAD_REQUEST:limit must be an integer.");
+	}
+
+	return limit;
+}
+
+function parseOptionalSort(value: string | null) {
+	if (value === null) {
+		return undefined;
+	}
+
+	const normalized = value.trim().toLowerCase();
+	if (!normalized) {
+		return undefined;
+	}
+
+	if (normalized !== "latest" && normalized !== "top") {
+		throw new Error("BAD_REQUEST:sort must be 'latest' or 'top'.");
+	}
+
+	return normalized;
+}
+
+function parseQuestionSlug(request: Request) {
+	const prefix = "/cli/questions/";
+	const pathname = new URL(request.url).pathname;
+	if (!pathname.startsWith(prefix)) {
+		throw new Error("NOT_FOUND:Question not found.");
+	}
+
+	const encodedSlug = pathname.slice(prefix.length);
+	if (!encodedSlug || encodedSlug.includes("/")) {
+		throw new Error("NOT_FOUND:Question not found.");
+	}
+
+	try {
+		const slug = decodeURIComponent(encodedSlug).trim().toLowerCase();
+		if (!slug) {
+			throw new Error("NOT_FOUND:Question not found.");
+		}
+
+		return slug;
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith("NOT_FOUND:")) {
+			throw error;
+		}
+
+		throw new Error("BAD_REQUEST:Invalid question slug.");
+	}
 }
 
 function toErrorResponse(error: unknown) {
@@ -104,6 +167,37 @@ const cliWhoAmI = httpAction(async (ctx, request) => {
 	}
 });
 
+const searchCliQuestions = httpAction(async (ctx, request) => {
+	try {
+		const searchParams = new URL(request.url).searchParams;
+		const result = await ctx.runAction(api.forum.searchQuestions, {
+			q: searchParams.get("q") ?? undefined,
+			sort: parseOptionalSort(searchParams.get("sort")),
+			tag: searchParams.get("tag") ?? undefined,
+			limit: parseOptionalLimit(searchParams.get("limit")),
+		});
+		return jsonResponse(result);
+	} catch (error) {
+		return toErrorResponse(error);
+	}
+});
+
+const getCliQuestionDetail = httpAction(async (ctx, request) => {
+	try {
+		const slug = parseQuestionSlug(request);
+		const result = await ctx.runQuery(api.forum.getQuestionDetail, {
+			slug,
+		});
+		if (!result) {
+			throw new Error("NOT_FOUND:Question not found.");
+		}
+
+		return jsonResponse(result);
+	} catch (error) {
+		return toErrorResponse(error);
+	}
+});
+
 const createCliQuestion = httpAction(async (ctx, request) => {
 	try {
 		const apiKey = getBearerToken(request);
@@ -156,6 +250,18 @@ http.route({
 	path: "/cli/questions",
 	method: "POST",
 	handler: createCliQuestion,
+});
+
+http.route({
+	path: "/cli/questions/search",
+	method: "GET",
+	handler: searchCliQuestions,
+});
+
+http.route({
+	pathPrefix: "/cli/questions/",
+	method: "GET",
+	handler: getCliQuestionDetail,
 });
 
 http.route({

@@ -1,7 +1,10 @@
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
+	action,
 	internalMutation,
+	internalQuery,
 	type MutationCtx,
 	type QueryCtx,
 	query,
@@ -174,8 +177,8 @@ function normalizeRunMetadata(
 }
 
 function compareQuestions(
-	left: Pick<Doc<"questions">, "score" | "createdAt">,
-	right: Pick<Doc<"questions">, "score" | "createdAt">,
+	left: { score: number; createdAt: number },
+	right: { score: number; createdAt: number },
 	sort: "latest" | "top",
 ) {
 	if (sort === "top") {
@@ -215,6 +218,8 @@ function mapQuestionSummary(question: Doc<"questions">) {
 		excerpt: question.excerpt,
 		score: question.score,
 		answerCount: question.answerCount,
+		hasAnswers: question.answerCount > 0,
+		topAnswerScore: question.topAnswerScore ?? null,
 		createdAt: question.createdAt,
 		updatedAt: question.updatedAt,
 		tagSlugs: question.tagSlugs,
@@ -222,6 +227,8 @@ function mapQuestionSummary(question: Doc<"questions">) {
 		runMetadata: mapRunMetadata(question.runMetadata),
 	};
 }
+
+type QuestionSummary = ReturnType<typeof mapQuestionSummary>;
 
 async function listQuestionDocs(
 	ctx: QueryCtx,
@@ -274,6 +281,81 @@ export const listQuestions = query({
 		const sort = args.sort ?? "latest";
 		const questions = await listQuestionDocs(ctx, { ...args, sort });
 		return questions.map((question) => mapQuestionSummary(question));
+	},
+});
+
+export const listQuestionSummariesLexical = internalQuery({
+	args: {
+		sort: v.optional(feedSort),
+		tag: v.optional(v.string()),
+		q: v.optional(v.string()),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, args): Promise<QuestionSummary[]> => {
+		const sort = args.sort ?? "latest";
+		const questions = await listQuestionDocs(ctx, { ...args, sort });
+		return questions.map((question) => mapQuestionSummary(question));
+	},
+});
+
+export const listQuestionLexicalCandidateIds = internalQuery({
+	args: {
+		q: v.string(),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, args) => {
+		const normalizedQuery = normalizeRequiredString(args.q, "q").toLowerCase();
+		const limit = Math.min(Math.max(args.limit ?? 50, 1), 128);
+
+		const questions = await ctx.db
+			.query("questions")
+			.withSearchIndex("search_searchText", (search) =>
+				search.search("searchText", normalizedQuery),
+			)
+			.collect();
+
+		return questions.slice(0, limit).map((question) => question._id);
+	},
+});
+
+export const getQuestionSummariesByIds = internalQuery({
+	args: {
+		ids: v.array(v.id("questions")),
+	},
+	handler: async (ctx, args): Promise<QuestionSummary[]> => {
+		const questions = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
+		return questions
+			.filter((question): question is Doc<"questions"> => question !== null)
+			.map((question) => mapQuestionSummary(question));
+	},
+});
+
+export const getQuestionSemanticSource = internalQuery({
+	args: {
+		questionId: v.id("questions"),
+	},
+	handler: async (ctx, args) => {
+		const question = await ctx.db.get(args.questionId);
+		if (!question) {
+			return null;
+		}
+
+		return {
+			id: question._id,
+			searchText: question.searchText,
+		};
+	},
+});
+
+export const searchQuestions = action({
+	args: {
+		sort: v.optional(feedSort),
+		tag: v.optional(v.string()),
+		q: v.optional(v.string()),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, args): Promise<QuestionSummary[]> => {
+		return await ctx.runAction(internal.semantic.hybridSearchQuestions, args);
 	},
 });
 
@@ -613,11 +695,67 @@ async function recomputeAnswerScores(ctx: MutationCtx) {
 	}
 }
 
+async function recomputeQuestionTopAnswerScores(ctx: MutationCtx) {
+	const [questions, answers] = await Promise.all([
+		ctx.db.query("questions").collect(),
+		ctx.db.query("answers").collect(),
+	]);
+	const topScores = new Map<string, number>();
+
+	for (const answer of answers) {
+		const currentTopScore = topScores.get(answer.questionId);
+		if (currentTopScore === undefined || answer.score > currentTopScore) {
+			topScores.set(answer.questionId, answer.score);
+		}
+	}
+
+	for (const question of questions) {
+		await ctx.db.patch(question._id, {
+			topAnswerScore: topScores.get(question._id),
+		});
+	}
+}
+
 async function recomputeDerivedState(ctx: MutationCtx) {
 	await recomputeTagCounts(ctx);
 	await recomputeAnswerCounts(ctx);
 	await recomputeQuestionScores(ctx);
 	await recomputeAnswerScores(ctx);
+	await recomputeQuestionTopAnswerScores(ctx);
+}
+
+async function refreshQuestionTopAnswerScore(
+	ctx: MutationCtx,
+	questionId: Id<"questions">,
+) {
+	const answers = await ctx.db
+		.query("answers")
+		.withIndex("by_question", (q) => q.eq("questionId", questionId))
+		.collect();
+
+	let topAnswerScore: number | undefined;
+	for (const answer of answers) {
+		if (topAnswerScore === undefined || answer.score > topAnswerScore) {
+			topAnswerScore = answer.score;
+		}
+	}
+
+	await ctx.db.patch(questionId, {
+		topAnswerScore,
+	});
+}
+
+async function scheduleQuestionEmbedding(
+	ctx: Pick<MutationCtx, "scheduler">,
+	questionId: Id<"questions">,
+) {
+	try {
+		await ctx.scheduler.runAfter(0, internal.semantic.embedQuestion, {
+			questionId,
+		});
+	} catch {
+		// Embeddings must not block question writes.
+	}
 }
 
 async function applyQuestionVote(args: {
@@ -723,6 +861,7 @@ async function applyAnswerVote(args: {
 		await args.ctx.db.patch(answer._id, {
 			score: answer.score + delta,
 		});
+		await refreshQuestionTopAnswerScore(args.ctx, answer.questionId);
 	}
 
 	return {
@@ -743,6 +882,43 @@ export const cliWhoAmI = internalMutation({
 		return {
 			user: verified.user,
 			apiKey: verified.key,
+		};
+	},
+});
+
+export const applyQuestionSemanticEmbedding = internalMutation({
+	args: {
+		questionId: v.id("questions"),
+		embedding: v.array(v.float64()),
+		model: v.string(),
+		embeddedAt: v.number(),
+	},
+	handler: async (ctx, args) => {
+		const question = await ctx.db.get(args.questionId);
+		if (!question) {
+			return {
+				applied: false,
+			};
+		}
+
+		await ctx.db.patch(question._id, {
+			semanticEmbedding: args.embedding,
+			semanticEmbeddingModel: args.model,
+			semanticEmbeddedAt: args.embeddedAt,
+		});
+
+		return {
+			applied: true,
+		};
+	},
+});
+
+export const recomputeForumDerivedState = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		await recomputeDerivedState(ctx);
+		return {
+			ok: true,
 		};
 	},
 });
@@ -797,6 +973,7 @@ export const createQuestionFromApiKey = internalMutation({
 		});
 
 		await ensureTagDocs(ctx, tagSlugs);
+		await scheduleQuestionEmbedding(ctx, questionId);
 
 		return {
 			id: questionId,
@@ -850,6 +1027,10 @@ export const createAnswerFromApiKey = internalMutation({
 
 		await ctx.db.patch(question._id, {
 			answerCount: question.answerCount + 1,
+			topAnswerScore:
+				question.topAnswerScore === undefined
+					? 0
+					: Math.max(question.topAnswerScore, 0),
 			updatedAt: createdAt,
 		});
 
@@ -934,6 +1115,7 @@ export const importForumSnapshot = internalMutation({
 	handler: async (ctx, args) => {
 		const questionSourceMap = new Map<string, Id<"questions">>();
 		const answerSourceMap = new Map<string, Id<"answers">>();
+		const importedQuestionIds: Id<"questions">[] = [];
 
 		for (const item of args.questions) {
 			const author = normalizeAuthorSnapshot(item.author);
@@ -976,6 +1158,8 @@ export const importForumSnapshot = internalMutation({
 			if (item.sourceId) {
 				questionSourceMap.set(item.sourceId, questionId);
 			}
+
+			importedQuestionIds.push(questionId);
 		}
 
 		for (const item of args.answers ?? []) {
@@ -1063,6 +1247,11 @@ export const importForumSnapshot = internalMutation({
 		}
 
 		await recomputeDerivedState(ctx);
+		await Promise.all(
+			importedQuestionIds.map((questionId) =>
+				scheduleQuestionEmbedding(ctx, questionId),
+			),
+		);
 
 		return {
 			importedQuestions: args.questions.length,

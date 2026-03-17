@@ -26,8 +26,12 @@ export default defineSchema({
 		excerpt: v.string(),
 		bodyMarkdown: v.string(),
 		searchText: v.string(),
+		semanticEmbedding: v.optional(v.array(v.float64())),
+		semanticEmbeddingModel: v.optional(v.string()),
+		semanticEmbeddedAt: v.optional(v.number()),
 		score: v.number(),
 		answerCount: v.number(),
+		topAnswerScore: v.optional(v.number()),
 		tagSlugs: v.array(v.string()),
 		createdAt: v.number(),
 		updatedAt: v.number(),
@@ -38,6 +42,10 @@ export default defineSchema({
 		.index("by_score", ["score"])
 		.searchIndex("search_searchText", {
 			searchField: "searchText",
+		})
+		.vectorIndex("by_semantic_embedding", {
+			vectorField: "semanticEmbedding",
+			dimensions: 1536,
 		}),
 	answers: defineTable({
 		questionId: v.id("questions"),

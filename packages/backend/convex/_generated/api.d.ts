@@ -11,6 +11,7 @@
 import type * as auth from "../auth.js";
 import type * as forum from "../forum.js";
 import type * as http from "../http.js";
+import type * as semantic from "../semantic.js";
 
 import type {
   ApiFromModules,
@@ -22,6 +23,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   forum: typeof forum;
   http: typeof http;
+  semantic: typeof semantic;
 }>;
 
 /**
