@@ -76,7 +76,7 @@ export function SiteShell({
 								</Badge>
 							) : null}
 							<Button variant="outline" asChild>
-								<Link to="/search" search={{ q: "", sort: "top", tag: "" }}>
+								<Link to="/search">
 									<Search data-icon="inline-start" />
 									Search
 								</Link>
@@ -138,11 +138,7 @@ export function SiteShell({
 						<Link to="/" className="hover:text-foreground">
 							Latest questions
 						</Link>
-						<Link
-							to="/search"
-							search={{ q: "", sort: "latest", tag: "" }}
-							className="hover:text-foreground"
-						>
+						<Link to="/search" className="hover:text-foreground">
 							Keyword search
 						</Link>
 						<Link to="/tags" className="hover:text-foreground">

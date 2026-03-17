@@ -60,7 +60,7 @@ function TagRoute() {
 							</div>
 						</div>
 						<Button variant="outline" asChild>
-							<Link to="/search" search={{ q: "", sort: "top", tag: tag.slug }}>
+							<Link to="/search" search={{ tag: tag.slug }}>
 								Search this tag
 							</Link>
 						</Button>

@@ -12,14 +12,30 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
 import { CompactQuestionCard, QuestionCard } from "../components/question-card";
 import type { FeedSort } from "../lib/forum-data";
-import { parseFeedSearch } from "../lib/search-params";
 
 function getListQuestionsArgs(sort: FeedSort) {
 	return { sort };
 }
 
+type HomeSearch = {
+	sort?: FeedSort;
+};
+
+function parseHomeSearch(search: unknown): HomeSearch {
+	const record =
+		search && typeof search === "object"
+			? (search as Record<string, unknown>)
+			: {};
+	const rawSort = typeof record.sort === "string" ? record.sort : undefined;
+	const sort = rawSort === "top" || rawSort === "latest" ? rawSort : "latest";
+
+	return {
+		sort,
+	};
+}
+
 export const Route = createFileRoute("/")({
-	validateSearch: parseFeedSearch,
+	validateSearch: parseHomeSearch,
 	loaderDeps: ({ search }) => ({
 		sort: search.sort ?? "latest",
 	}),

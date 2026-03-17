@@ -1,5 +1,5 @@
-import { convexQuery } from "@convex-dev/react-query";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { convexAction, convexQuery } from "@convex-dev/react-query";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { api } from "@workspace/backend/convex/_generated/api";
 import { Badge } from "@workspace/ui/components/badge";
@@ -23,70 +23,79 @@ import {
 } from "@workspace/ui/components/select";
 import { type FormEvent, useEffect, useState } from "react";
 import { QuestionCard } from "../components/question-card";
-import type { FeedSort } from "../lib/forum-data";
-import { type FeedSearch, parseFeedSearch } from "../lib/search-params";
+import {
+	parseSearchPageSearch,
+	type SearchPageSearch,
+} from "../lib/search-params";
 
 const ALL_TAGS_VALUE = "__all_tags__";
 
-function getListQuestionsArgs(search: FeedSearch) {
+function normalizeSearchValue(value: string | undefined) {
+	const normalized = value?.trim();
+	return normalized || undefined;
+}
+
+function buildSearchPageSearch(search: SearchPageSearch): SearchPageSearch {
 	return {
-		sort: search.sort ?? "latest",
-		q: search.q?.trim() || undefined,
-		tag: search.tag?.trim() || undefined,
+		q: normalizeSearchValue(search.q),
+		tag: normalizeSearchValue(search.tag),
 	};
 }
 
 export const Route = createFileRoute("/search")({
-	validateSearch: parseFeedSearch,
-	loaderDeps: ({ search }) => ({
-		sort: search.sort ?? "latest",
-		q: search.q?.trim() || undefined,
-		tag: search.tag?.trim() || undefined,
-	}),
+	validateSearch: parseSearchPageSearch,
+	loaderDeps: ({ search }) => buildSearchPageSearch(search),
 	loader: async ({ context, deps }) => {
-		await Promise.all([
-			context.queryClient.ensureQueryData(
-				convexQuery(api.forum.listQuestions, deps),
-			),
-			context.queryClient.ensureQueryData(convexQuery(api.forum.listTags, {})),
-		]);
+		if (deps.q) {
+			await Promise.all([
+				context.queryClient.ensureQueryData(
+					convexAction(api.forum.searchQuestions, deps),
+				),
+				context.queryClient.ensureQueryData(
+					convexQuery(api.forum.listTags, {}),
+				),
+			]);
+			return;
+		}
+
+		await context.queryClient.ensureQueryData(
+			convexQuery(api.forum.listTags, {}),
+		);
 	},
 	component: SearchRoute,
 });
 
-const sortOptions = [
-	{ value: "latest", label: "Newest" },
-	{ value: "top", label: "Votes" },
-] as const;
-
 function SearchRoute() {
 	const search = Route.useSearch();
 	const navigate = useNavigate();
-	const questionsQuery = useSuspenseQuery(
-		convexQuery(api.forum.listQuestions, getListQuestionsArgs(search)),
-	);
 	const tagsQuery = useSuspenseQuery(convexQuery(api.forum.listTags, {}));
-	const questions = questionsQuery.data;
 	const tags = tagsQuery.data;
-	const [query, setQuery] = useState(search.q ?? "");
-	const [sort, setSort] = useState<FeedSort>(search.sort ?? "latest");
-	const [tag, setTag] = useState(search.tag ?? "");
+	const submittedQuery = normalizeSearchValue(search.q);
+	const selectedTag = normalizeSearchValue(search.tag);
+	const [queryDraft, setQueryDraft] = useState(submittedQuery ?? "");
 
 	useEffect(() => {
-		setQuery(search.q ?? "");
-		setSort(search.sort ?? "latest");
-		setTag(search.tag ?? "");
-	}, [search.q, search.sort, search.tag]);
+		setQueryDraft(submittedQuery ?? "");
+	}, [submittedQuery]);
 
 	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		void navigate({
 			to: "/search",
-			search: {
-				q: query,
-				sort,
-				tag,
-			},
+			search: buildSearchPageSearch({
+				q: queryDraft,
+				tag: selectedTag,
+			}),
+		});
+	};
+
+	const handleTagChange = (value: string) => {
+		void navigate({
+			to: "/search",
+			search: buildSearchPageSearch({
+				q: submittedQuery,
+				tag: value === ALL_TAGS_VALUE ? undefined : value,
+			}),
 		});
 	};
 
@@ -104,9 +113,9 @@ function SearchRoute() {
 				<aside className="flex flex-col gap-5">
 					<Card>
 						<CardHeader className="border-b">
-							<CardTitle>Filter</CardTitle>
+							<CardTitle>Semantic Search</CardTitle>
 							<CardDescription>
-								Use the URL-backed filters to narrow the feed.
+								Draft your query locally. Results update only after you submit.
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -115,40 +124,17 @@ function SearchRoute() {
 									<Label htmlFor="search-query">Query</Label>
 									<Input
 										id="search-query"
-										value={query}
-										onChange={(event) => setQuery(event.target.value)}
-										placeholder="Search..."
+										value={queryDraft}
+										onChange={(event) => setQueryDraft(event.target.value)}
+										placeholder="Search titles and question bodies..."
 									/>
-								</div>
-
-								<div className="flex flex-col gap-1.5">
-									<Label htmlFor="search-sort">Sort</Label>
-									<Select
-										value={sort}
-										onValueChange={(value) => setSort(value as FeedSort)}
-									>
-										<SelectTrigger id="search-sort" className="w-full">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												{sortOptions.map((option) => (
-													<SelectItem key={option.value} value={option.value}>
-														{option.label}
-													</SelectItem>
-												))}
-											</SelectGroup>
-										</SelectContent>
-									</Select>
 								</div>
 
 								<div className="flex flex-col gap-1.5">
 									<Label htmlFor="search-tag">Tag</Label>
 									<Select
-										value={tag || ALL_TAGS_VALUE}
-										onValueChange={(value) =>
-											setTag(value === ALL_TAGS_VALUE ? "" : value)
-										}
+										value={selectedTag ?? ALL_TAGS_VALUE}
+										onValueChange={handleTagChange}
 									>
 										<SelectTrigger id="search-tag" className="w-full">
 											<SelectValue placeholder="All tags" />
@@ -170,7 +156,7 @@ function SearchRoute() {
 								</div>
 
 								<Button type="submit" className="w-full">
-									Apply Filters
+									Search
 								</Button>
 							</form>
 						</CardContent>
@@ -185,32 +171,14 @@ function SearchRoute() {
 				</aside>
 
 				<div className="min-w-0">
-					<div className="mb-4 text-sm text-muted-foreground">
-						{questions.length} results
-						{search.q ? ` for "${search.q}"` : ""}
-						{search.tag ? ` in ${search.tag}` : ""}
-					</div>
-
-					<div className="flex flex-col gap-4">
-						{questions.length ? (
-							questions.map((question) => (
-								<QuestionCard
-									key={question.id}
-									question={question}
-									eyebrow="Search result"
-								/>
-							))
-						) : (
-							<Card>
-								<CardHeader>
-									<CardTitle>No results</CardTitle>
-									<CardDescription>
-										Try a broader keyword or remove the tag filter.
-									</CardDescription>
-								</CardHeader>
-							</Card>
-						)}
-					</div>
+					{submittedQuery ? (
+						<SearchResults
+							submittedQuery={submittedQuery}
+							selectedTag={selectedTag}
+						/>
+					) : (
+						<SearchIdleState selectedTag={selectedTag} />
+					)}
 
 					<TagBrowseCard
 						tags={tags}
@@ -224,6 +192,107 @@ function SearchRoute() {
 	);
 }
 
+function SearchIdleState({ selectedTag }: { selectedTag: string | undefined }) {
+	return (
+		<Card>
+			<CardHeader className="border-b">
+				<CardTitle>Search the archive</CardTitle>
+				<CardDescription>
+					Submit a query to run the existing hybrid search across question
+					titles and bodies.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
+				<p>
+					The page stays idle until you submit a query. Editing the input alone
+					does not refresh results.
+				</p>
+				{selectedTag ? (
+					<div className="flex flex-wrap items-center gap-2">
+						<span>Current tag filter:</span>
+						<Badge variant="secondary">{selectedTag}</Badge>
+					</div>
+				) : (
+					<p>Pick a tag first if you want to narrow the search scope.</p>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
+function SearchResults({
+	submittedQuery,
+	selectedTag,
+}: {
+	submittedQuery: string;
+	selectedTag: string | undefined;
+}) {
+	const questionsQuery = useQuery(
+		convexAction(
+			api.forum.searchQuestions,
+			buildSearchPageSearch({
+				q: submittedQuery,
+				tag: selectedTag,
+			}),
+		),
+	);
+
+	if (questionsQuery.error) {
+		throw questionsQuery.error;
+	}
+
+	if (questionsQuery.isPending) {
+		return (
+			<Card>
+				<CardHeader>
+					<CardTitle>Loading results</CardTitle>
+					<CardDescription>
+						Running the current hybrid search query.
+					</CardDescription>
+				</CardHeader>
+			</Card>
+		);
+	}
+
+	const questions = questionsQuery.data ?? [];
+
+	return (
+		<>
+			<div className="mb-4 flex flex-col gap-1">
+				<div className="text-sm text-muted-foreground">
+					{questions.length} results for "{submittedQuery}"
+					{selectedTag ? ` in ${selectedTag}` : ""}
+				</div>
+				<p className="text-sm text-muted-foreground">
+					Results follow the current hybrid-search relevance order. Lexical
+					matches appear before semantic-only matches.
+				</p>
+			</div>
+
+			<div className="flex flex-col gap-4">
+				{questions.length ? (
+					questions.map((question) => (
+						<QuestionCard
+							key={question.id}
+							question={question}
+							eyebrow="Search result"
+						/>
+					))
+				) : (
+					<Card>
+						<CardHeader>
+							<CardTitle>No results</CardTitle>
+							<CardDescription>
+								Try a broader query or remove the tag filter.
+							</CardDescription>
+						</CardHeader>
+					</Card>
+				)}
+			</div>
+		</>
+	);
+}
+
 function TagBrowseCard({
 	tags,
 	search,
@@ -231,7 +300,7 @@ function TagBrowseCard({
 	className,
 }: {
 	tags: { slug: string }[];
-	search: FeedSearch;
+	search: SearchPageSearch;
 	title: string;
 	className?: string;
 }) {
@@ -251,11 +320,10 @@ function TagBrowseCard({
 						>
 							<Link
 								to="/search"
-								search={{
-									q: search.q ?? "",
-									sort: search.sort ?? "latest",
-									tag: active ? "" : tag.slug,
-								}}
+								search={buildSearchPageSearch({
+									q: search.q,
+									tag: active ? undefined : tag.slug,
+								})}
 							>
 								{tag.slug}
 							</Link>
