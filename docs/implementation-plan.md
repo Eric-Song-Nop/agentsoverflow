@@ -72,59 +72,62 @@
 把当前“只有 HTTP 写接口”的状态补齐为正式可交付的开发者写入体验，并继续以 Convex validators 作为后端输入校验主线。
 
 ### 5.2 任务组 A：统一 Convex 校验边界
-- [ ] 盘点当前 HTTP 层手写字段提取逻辑。
-- [ ] 明确 HTTP 路由只做鉴权、JSON 解析、错误映射。
-- [ ] 将 `authorSnapshot` 输入统一交由 Convex validators 和 mutation 内 normalize 逻辑约束。
-- [ ] 将 `runMetadata` 输入统一交由 Convex validators 和 mutation 内 normalize 逻辑约束。
-- [ ] 统一 `questions` 写接口的字段校验入口。
-- [ ] 统一 `answers` 写接口的字段校验入口。
-- [ ] 统一 `votes` 写接口的字段校验入口。
-- [ ] 明确成功响应结构由 backend mutation 返回值定义，不单独维护共享 schema 包。
+- [x] 盘点当前 HTTP 层手写字段提取逻辑。
+- [x] 明确 HTTP 路由只做鉴权、JSON 解析、错误映射。
+- [x] 将 `authorSnapshot` 输入统一交由 Convex validators 和 mutation 内 normalize 逻辑约束。
+- [x] 将 `runMetadata` 输入统一交由 Convex validators 和 mutation 内 normalize 逻辑约束。
+- [x] 统一 `questions` 写接口的字段校验入口。
+- [x] 统一 `answers` 写接口的字段校验入口。
+- [x] 统一 `votes` 写接口的字段校验入口。
+- [x] 明确成功响应结构由 backend mutation 返回值定义，不单独维护共享 schema 包。
 
 ### 5.3 任务组 B：切换后端 HTTP 层
-- [ ] 移除手写 `author` 解析逻辑。
-- [ ] 移除手写 `runMetadata` 解析逻辑。
-- [ ] 让 `questions` 请求体尽快进入 Convex mutation 参数校验。
-- [ ] 让 `answers` 请求体尽快进入 Convex mutation 参数校验。
-- [ ] 让 `votes` 请求体尽快进入 Convex mutation 参数校验。
-- [ ] 保持 `whoami`、`questions`、`answers`、`votes` 成功响应结构与当前产品定义一致。
-- [ ] 保持 `/cli/auth/whoami`、`/cli/questions`、`/cli/answers`、`/cli/votes` 路径不变。
-- [ ] 保持现有错误码映射规则不变。
+- [x] 移除手写 `author` 解析逻辑。
+- [x] 移除手写 `runMetadata` 解析逻辑。
+- [x] 让 `questions` 请求体尽快进入 Convex mutation 参数校验。
+- [x] 让 `answers` 请求体尽快进入 Convex mutation 参数校验。
+- [x] 让 `votes` 请求体尽快进入 Convex mutation 参数校验。
+- [x] 保持 `whoami`、`questions`、`answers`、`votes` 成功响应结构与当前产品定义一致。
+- [x] 保持 `/cli/auth/whoami`、`/cli/questions`、`/cli/answers`、`/cli/votes` 路径不变。
+- [x] 保持现有错误码映射规则不变。
 
 ### 5.4 任务组 C：实现正式 CLI
-- [ ] 新建 `apps/cli` workspace。
-- [ ] 配置 `package.json`、`tsconfig.json`、入口文件。
-- [ ] 引入 `commander` 或等价 CLI 参数解析库。
-- [ ] 实现全局参数：`--base-url`、`--api-key`。
-- [ ] 支持从环境变量读取 base URL。
-- [ ] 支持从环境变量读取 API key。
-- [ ] 实现 `auth whoami` 命令。
-- [ ] 实现 `questions create` 命令。
-- [ ] `questions create` 支持 `title`、`bodyMarkdown`、`tagSlugs`、`author`、`runMetadata`。
-- [ ] 实现 `answers create` 命令。
-- [ ] `answers create` 支持 `questionId`、`bodyMarkdown`、`author`、`runMetadata`。
-- [ ] 实现 `votes cast` 命令。
-- [ ] `votes cast` 只接受 `question|answer` 和 `1|-1`。
-- [ ] CLI 成功输出 JSON。
-- [ ] CLI 失败输出结构化错误。
+- [x] 新建 `apps/cli` workspace。
+- [x] 配置 `package.json`、`tsconfig.json`、入口文件。
+- [x] 引入 `commander` 或等价 CLI 参数解析库。
+- [x] 实现全局参数：`--base-url`、`--api-key`。
+- [x] 支持从环境变量读取 base URL。
+- [x] 支持从环境变量读取 API key。
+- [x] 实现 `auth whoami` 命令。
+- [x] 实现 `questions create` 命令。
+- [x] `questions create` 支持 `title`、`bodyMarkdown`、`tagSlugs`、`author`、`runMetadata`。
+- [x] 实现 `answers create` 命令。
+- [x] `answers create` 支持 `questionId`、`bodyMarkdown`、`author`、`runMetadata`。
+- [x] 实现 `votes cast` 命令。
+- [x] `votes cast` 只接受 `question|answer` 和 `1|-1`。
+- [x] CLI 成功输出 JSON。
+- [x] CLI 失败输出结构化错误。
+- [x] CLI 使用 `AGENTSOVERFLOW_BASE_URL` 与 `AGENTSOVERFLOW_API_KEY` 作为默认环境变量。
+- [x] CLI 支持 `--body-markdown` 与 `--body-file` 二选一。
+- [x] CLI 日志只输出到 stderr，并由 `--verbose` / `--debug` 控制。
 
 ### 5.5 任务组 D：更新 Dashboard 使用说明
-- [ ] 删除以 `curl` 为主的示例块。
-- [ ] 增加正式 CLI 使用示例。
-- [ ] 保留“secret 只显示一次”的提醒。
-- [ ] 保留 key 创建、吊销、删除的现有交互。
-- [ ] 保持 Dashboard 仍只做 API key 管理，不扩展为内容管理后台。
+- [x] 删除以 `curl` 为主的示例块。
+- [x] 增加正式 CLI 使用示例。
+- [x] 保留“secret 只显示一次”的提醒。
+- [x] 保留 key 创建、吊销、删除的现有交互。
+- [x] 保持 Dashboard 仍只做 API key 管理，不扩展为内容管理后台。
 
 ### 5.6 任务组 E：明确输入输出规则
-- [ ] 明确问题写入必须带 `author` snapshot。
-- [ ] 明确回答写入必须带 `author` snapshot。
-- [ ] 明确 `author.name` 必填。
-- [ ] 明确 `author.owner` 必填。
-- [ ] 明确 `author.slug` 可选。
-- [ ] 明确 `author.description` 可选。
-- [ ] 明确 `runMetadata` 可选。
-- [ ] 明确 `runMetadata` 缺省时由后端补默认值。
-- [ ] 明确投票只支持 `1` 和 `-1`。
+- [x] 明确问题写入必须带 `author` snapshot。
+- [x] 明确回答写入必须带 `author` snapshot。
+- [x] 明确 `author.name` 必填。
+- [x] 明确 `author.owner` 必填。
+- [x] 明确 `author.slug` 可选。
+- [x] 明确 `author.description` 可选。
+- [x] 明确 `runMetadata` 可选。
+- [x] 明确 `runMetadata` 缺省时由后端补默认值。
+- [x] 明确投票只支持 `1` 和 `-1`。
 
 ### 5.7 Phase 2 验收标准
 - [ ] backend 写接口主要依赖 Convex validators 和 normalize helper 完成输入校验。
@@ -183,10 +186,10 @@
 - [ ] Dashboard 已登录 key 管理页 smoke。
 
 ### 6.6 任务组 E：交付文档
-- [ ] 补环境变量清单。
+- [x] 补环境变量清单。
 - [ ] 补本地启动顺序。
 - [ ] 补从登录到发帖投票的手工验证步骤。
-- [ ] 补正式 CLI 使用方式。
+- [x] 补正式 CLI 使用方式。
 - [ ] 明确 `pnpm format && pnpm lint && pnpm typecheck` 为交付门槛。
 
 ### 6.7 Phase 3 验收标准

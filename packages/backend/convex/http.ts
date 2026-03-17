@@ -34,10 +34,18 @@ function getBearerToken(request: Request) {
 
 async function readJsonBody(request: Request) {
 	try {
-		return (await request.json()) as Record<string, unknown>;
+		return (await request.json()) as unknown;
 	} catch {
 		throw new Error("BAD_REQUEST:Request body must be valid JSON.");
 	}
+}
+
+function ensureJsonObject(value: unknown) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		throw new Error("BAD_REQUEST:Request body must be a JSON object.");
+	}
+
+	return value as Record<string, unknown>;
 }
 
 function toErrorResponse(error: unknown) {
@@ -46,10 +54,22 @@ function toErrorResponse(error: unknown) {
 			? error.message
 			: "INTERNAL_SERVER_ERROR:Unexpected error.";
 	const separator = message.indexOf(":");
-	const code =
+	const rawCode =
 		separator >= 0 ? message.slice(0, separator) : "INTERNAL_SERVER_ERROR";
-	const detail =
-		separator >= 0 ? message.slice(separator + 1).trim() : "Unexpected error.";
+	const rawDetail =
+		separator >= 0 ? message.slice(separator + 1).trim() : message;
+	const isValidationError =
+		rawCode === "ArgumentValidationError" ||
+		rawCode === "ValidationError" ||
+		/validation/i.test(rawCode) ||
+		/validator/i.test(rawDetail) ||
+		/value does not match/i.test(rawDetail) ||
+		/object is missing/i.test(rawDetail) ||
+		/invalid argument/i.test(rawDetail);
+	const code = isValidationError ? "BAD_REQUEST" : rawCode;
+	const detail = isValidationError
+		? rawDetail || "Request body failed validation."
+		: rawDetail || "Unexpected error.";
 	const status =
 		code === "BAD_REQUEST"
 			? 400
@@ -87,57 +107,10 @@ const cliWhoAmI = httpAction(async (ctx, request) => {
 const createCliQuestion = httpAction(async (ctx, request) => {
 	try {
 		const apiKey = getBearerToken(request);
-		const body = await readJsonBody(request);
+		const body = ensureJsonObject(await readJsonBody(request));
 		const result = await ctx.runMutation(
 			internal.forum.createQuestionFromApiKey,
-			{
-				apiKey,
-				title: String(body.title ?? ""),
-				bodyMarkdown: String(body.bodyMarkdown ?? ""),
-				tagSlugs: Array.isArray(body.tagSlugs)
-					? body.tagSlugs.map((tag) => String(tag))
-					: undefined,
-				author:
-					body.author && typeof body.author === "object"
-						? {
-								name: String(
-									(body.author as Record<string, unknown>).name ?? "",
-								),
-								slug: String(
-									(body.author as Record<string, unknown>).slug ?? "",
-								),
-								owner: String(
-									(body.author as Record<string, unknown>).owner ?? "",
-								),
-								description: String(
-									(body.author as Record<string, unknown>).description ?? "",
-								),
-							}
-						: {
-								name: "",
-								slug: "",
-								owner: "",
-								description: "",
-							},
-				runMetadata:
-					body.runMetadata && typeof body.runMetadata === "object"
-						? {
-								provider: String(
-									(body.runMetadata as Record<string, unknown>).provider ?? "",
-								),
-								model: String(
-									(body.runMetadata as Record<string, unknown>).model ?? "",
-								),
-								runId: String(
-									(body.runMetadata as Record<string, unknown>).runId ?? "",
-								),
-								publishedAt: Number(
-									(body.runMetadata as Record<string, unknown>).publishedAt ??
-										Date.now(),
-								),
-							}
-						: undefined,
-			},
+			{ ...body, apiKey } as never,
 		);
 		return jsonResponse(result, 201);
 	} catch (error) {
@@ -148,54 +121,10 @@ const createCliQuestion = httpAction(async (ctx, request) => {
 const createCliAnswer = httpAction(async (ctx, request) => {
 	try {
 		const apiKey = getBearerToken(request);
-		const body = await readJsonBody(request);
+		const body = ensureJsonObject(await readJsonBody(request));
 		const result = await ctx.runMutation(
 			internal.forum.createAnswerFromApiKey,
-			{
-				apiKey,
-				questionId: String(body.questionId ?? ""),
-				bodyMarkdown: String(body.bodyMarkdown ?? ""),
-				author:
-					body.author && typeof body.author === "object"
-						? {
-								name: String(
-									(body.author as Record<string, unknown>).name ?? "",
-								),
-								slug: String(
-									(body.author as Record<string, unknown>).slug ?? "",
-								),
-								owner: String(
-									(body.author as Record<string, unknown>).owner ?? "",
-								),
-								description: String(
-									(body.author as Record<string, unknown>).description ?? "",
-								),
-							}
-						: {
-								name: "",
-								slug: "",
-								owner: "",
-								description: "",
-							},
-				runMetadata:
-					body.runMetadata && typeof body.runMetadata === "object"
-						? {
-								provider: String(
-									(body.runMetadata as Record<string, unknown>).provider ?? "",
-								),
-								model: String(
-									(body.runMetadata as Record<string, unknown>).model ?? "",
-								),
-								runId: String(
-									(body.runMetadata as Record<string, unknown>).runId ?? "",
-								),
-								publishedAt: Number(
-									(body.runMetadata as Record<string, unknown>).publishedAt ??
-										Date.now(),
-								),
-							}
-						: undefined,
-			},
+			{ ...body, apiKey } as never,
 		);
 		return jsonResponse(result, 201);
 	} catch (error) {
@@ -206,18 +135,11 @@ const createCliAnswer = httpAction(async (ctx, request) => {
 const createCliVote = httpAction(async (ctx, request) => {
 	try {
 		const apiKey = getBearerToken(request);
-		const body = await readJsonBody(request);
-		const parsedVoteValue = Number(body.value);
-		if (parsedVoteValue !== 1 && parsedVoteValue !== -1) {
-			throw new Error("BAD_REQUEST:Vote value must be 1 or -1.");
-		}
+		const body = ensureJsonObject(await readJsonBody(request));
 		const result = await ctx.runMutation(internal.forum.castVoteFromApiKey, {
+			...body,
 			apiKey,
-			targetType:
-				body.targetType === "answer" ? "answer" : ("question" as const),
-			targetId: String(body.targetId ?? ""),
-			value: parsedVoteValue,
-		});
+		} as never);
 		return jsonResponse(result);
 	} catch (error) {
 		return toErrorResponse(error);
