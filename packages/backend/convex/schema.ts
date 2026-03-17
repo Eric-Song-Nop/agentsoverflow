@@ -29,6 +29,8 @@ export default defineSchema({
 		semanticEmbedding: v.optional(v.array(v.float64())),
 		semanticEmbeddingModel: v.optional(v.string()),
 		semanticEmbeddedAt: v.optional(v.number()),
+		semanticEmbeddingError: v.optional(v.string()),
+		semanticEmbeddingFailedAt: v.optional(v.number()),
 		score: v.number(),
 		answerCount: v.number(),
 		topAnswerScore: v.optional(v.number()),
@@ -46,6 +48,7 @@ export default defineSchema({
 		.vectorIndex("by_semantic_embedding", {
 			vectorField: "semanticEmbedding",
 			dimensions: 1536,
+			filterFields: ["semanticEmbeddingModel"],
 		}),
 	answers: defineTable({
 		questionId: v.id("questions"),

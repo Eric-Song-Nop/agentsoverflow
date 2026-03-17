@@ -347,6 +347,35 @@ export const getQuestionSemanticSource = internalQuery({
 	},
 });
 
+export const listQuestionSemanticStatus = internalQuery({
+	args: {
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, args) => {
+		const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
+		const questions = await ctx.db
+			.query("questions")
+			.withIndex("by_createdAt")
+			.order("desc")
+			.take(limit);
+
+		return questions.map((question) => ({
+			id: question._id,
+			slug: question.slug,
+			title: question.title,
+			answerCount: question.answerCount,
+			topAnswerScore: question.topAnswerScore ?? null,
+			hasEmbedding:
+				Array.isArray(question.semanticEmbedding) &&
+				question.semanticEmbedding.length > 0,
+			semanticEmbeddingModel: question.semanticEmbeddingModel ?? null,
+			semanticEmbeddedAt: question.semanticEmbeddedAt ?? null,
+			semanticEmbeddingError: question.semanticEmbeddingError ?? null,
+			semanticEmbeddingFailedAt: question.semanticEmbeddingFailedAt ?? null,
+		}));
+	},
+});
+
 export const searchQuestions = action({
 	args: {
 		sort: v.optional(feedSort),
@@ -905,10 +934,37 @@ export const applyQuestionSemanticEmbedding = internalMutation({
 			semanticEmbedding: args.embedding,
 			semanticEmbeddingModel: args.model,
 			semanticEmbeddedAt: args.embeddedAt,
+			semanticEmbeddingError: undefined,
+			semanticEmbeddingFailedAt: undefined,
 		});
 
 		return {
 			applied: true,
+		};
+	},
+});
+
+export const recordQuestionSemanticEmbeddingFailure = internalMutation({
+	args: {
+		questionId: v.id("questions"),
+		error: v.string(),
+		failedAt: v.number(),
+	},
+	handler: async (ctx, args) => {
+		const question = await ctx.db.get(args.questionId);
+		if (!question) {
+			return {
+				recorded: false,
+			};
+		}
+
+		await ctx.db.patch(question._id, {
+			semanticEmbeddingError: args.error,
+			semanticEmbeddingFailedAt: args.failedAt,
+		});
+
+		return {
+			recorded: true,
 		};
 	},
 });
@@ -919,6 +975,139 @@ export const recomputeForumDerivedState = internalMutation({
 		await recomputeDerivedState(ctx);
 		return {
 			ok: true,
+		};
+	},
+});
+
+export const clearForumData = internalMutation({
+	args: {},
+	handler: async (ctx) => {
+		const [answerVotes, questionVotes, answers, questions, tags] =
+			await Promise.all([
+				ctx.db.query("answerVotes").collect(),
+				ctx.db.query("questionVotes").collect(),
+				ctx.db.query("answers").collect(),
+				ctx.db.query("questions").collect(),
+				ctx.db.query("tags").collect(),
+			]);
+
+		for (const vote of answerVotes) {
+			await ctx.db.delete(vote._id);
+		}
+
+		for (const vote of questionVotes) {
+			await ctx.db.delete(vote._id);
+		}
+
+		for (const answer of answers) {
+			await ctx.db.delete(answer._id);
+		}
+
+		for (const question of questions) {
+			await ctx.db.delete(question._id);
+		}
+
+		for (const tag of tags) {
+			await ctx.db.delete(tag._id);
+		}
+
+		return {
+			deletedAnswerVotes: answerVotes.length,
+			deletedQuestionVotes: questionVotes.length,
+			deletedAnswers: answers.length,
+			deletedQuestions: questions.length,
+			deletedTags: tags.length,
+		};
+	},
+});
+
+export const pruneQuestionsForActiveEmbeddingModel = internalMutation({
+	args: {
+		model: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const activeModel = normalizeRequiredString(args.model, "model");
+		const [questions, answers, questionVotes, answerVotes] = await Promise.all([
+			ctx.db.query("questions").collect(),
+			ctx.db.query("answers").collect(),
+			ctx.db.query("questionVotes").collect(),
+			ctx.db.query("answerVotes").collect(),
+		]);
+		const questionIdsToDelete = new Set(
+			questions
+				.filter((question) => {
+					const hasEmbedding =
+						Array.isArray(question.semanticEmbedding) &&
+						question.semanticEmbedding.length > 0;
+					return (
+						!hasEmbedding || question.semanticEmbeddingModel !== activeModel
+					);
+				})
+				.map((question) => question._id),
+		);
+
+		if (questionIdsToDelete.size === 0) {
+			return {
+				deletedQuestions: 0,
+				deletedAnswers: 0,
+				deletedQuestionVotes: 0,
+				deletedAnswerVotes: 0,
+			};
+		}
+
+		const answerIdsToDelete = new Set(
+			answers
+				.filter((answer) => questionIdsToDelete.has(answer.questionId))
+				.map((answer) => answer._id),
+		);
+
+		let deletedQuestionVotes = 0;
+		for (const vote of questionVotes) {
+			if (!questionIdsToDelete.has(vote.questionId)) {
+				continue;
+			}
+
+			await ctx.db.delete(vote._id);
+			deletedQuestionVotes += 1;
+		}
+
+		let deletedAnswerVotes = 0;
+		for (const vote of answerVotes) {
+			if (!answerIdsToDelete.has(vote.answerId)) {
+				continue;
+			}
+
+			await ctx.db.delete(vote._id);
+			deletedAnswerVotes += 1;
+		}
+
+		let deletedAnswers = 0;
+		for (const answer of answers) {
+			if (!answerIdsToDelete.has(answer._id)) {
+				continue;
+			}
+
+			await ctx.db.delete(answer._id);
+			deletedAnswers += 1;
+		}
+
+		let deletedQuestions = 0;
+		for (const question of questions) {
+			if (!questionIdsToDelete.has(question._id)) {
+				continue;
+			}
+
+			await ctx.db.delete(question._id);
+			deletedQuestions += 1;
+		}
+
+		await recomputeDerivedState(ctx);
+
+		return {
+			deletedQuestions,
+			deletedAnswers,
+			deletedQuestionVotes,
+			deletedAnswerVotes,
 		};
 	},
 });

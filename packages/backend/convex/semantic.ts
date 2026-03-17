@@ -11,6 +11,9 @@ const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const EMBEDDING_DIMENSIONS = 1536;
 const MAX_HYBRID_CANDIDATES = 128;
+const MAX_SEMANTIC_EXPANSIONS = 8;
+const SEMANTIC_SCORE_RATIO_THRESHOLD = 0.92;
+const EMBEDDING_REQUEST_TIMEOUT_MS = 15000;
 
 function normalizeLimit(limit: number | undefined) {
 	return Math.min(Math.max(limit ?? 50, 1), 50);
@@ -29,16 +32,16 @@ function getHybridCandidateLimit(limit: number) {
 	return Math.min(Math.max(limit * 5, 50), MAX_HYBRID_CANDIDATES);
 }
 
-function compareQuestionSummaries(
-	left: { score: number; createdAt: number },
-	right: { score: number; createdAt: number },
-	sort: "latest" | "top",
-) {
-	if (sort === "top" && right.score !== left.score) {
-		return right.score - left.score;
+function stringifyError(error: unknown) {
+	if (error instanceof Error) {
+		return error.message;
 	}
 
-	return right.createdAt - left.createdAt;
+	return typeof error === "string" ? error : "Unexpected error.";
+}
+
+function logSemanticError(scope: string, error: unknown, context: object) {
+	console.error(`[semantic] ${scope}: ${stringifyError(error)}`, context);
 }
 
 type QuestionSummary = {
@@ -122,30 +125,63 @@ async function requestEmbedding(input: string) {
 		return null;
 	}
 
-	const response = await fetch(`${config.baseUrl}/embeddings`, {
-		method: "POST",
-		headers: {
-			authorization: `Bearer ${config.apiKey}`,
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({
-			model: config.model,
-			input,
-			dimensions: EMBEDDING_DIMENSIONS,
-		}),
-	});
+	let lastError: unknown;
+	for (let attempt = 1; attempt <= 2; attempt += 1) {
+		try {
+			const response = await fetch(`${config.baseUrl}/embeddings`, {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${config.apiKey}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					model: config.model,
+					input,
+					dimensions: EMBEDDING_DIMENSIONS,
+				}),
+				signal: AbortSignal.timeout(EMBEDDING_REQUEST_TIMEOUT_MS),
+			});
 
-	if (!response.ok) {
-		const detail = (await response.text()).trim();
-		throw new Error(
-			`Embeddings request failed with ${response.status}${detail ? `: ${detail}` : ""}`,
-		);
+			if (!response.ok) {
+				const detail = (await response.text()).trim();
+				throw new Error(
+					`Embeddings request failed with ${response.status}${detail ? `: ${detail}` : ""}`,
+				);
+			}
+
+			return {
+				model: config.model,
+				embedding: extractEmbedding((await response.json()) as unknown),
+			};
+		} catch (error) {
+			lastError = error;
+			if (attempt >= 2) {
+				throw error;
+			}
+
+			await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+		}
 	}
 
-	return {
-		model: config.model,
-		embedding: extractEmbedding((await response.json()) as unknown),
-	};
+	throw lastError instanceof Error
+		? lastError
+		: new Error("Embedding request failed.");
+}
+
+function selectSemanticMatches(
+	matches: Array<{ _id: Id<"questions">; _score: number }>,
+	limit: number,
+) {
+	if (matches.length === 0) {
+		return [];
+	}
+
+	const topScore = matches[0]?._score ?? 0;
+	const threshold =
+		topScore > 0 ? topScore * SEMANTIC_SCORE_RATIO_THRESHOLD : topScore;
+	return matches
+		.filter((match) => match._score >= threshold)
+		.slice(0, Math.min(limit, MAX_SEMANTIC_EXPANSIONS));
 }
 
 export const embedQuestion = internalAction({
@@ -186,10 +222,23 @@ export const embedQuestion = internalAction({
 				embedded: true,
 				model: result.model,
 			};
-		} catch {
+		} catch (error) {
+			const detail = stringifyError(error);
+			logSemanticError("embedQuestion", error, {
+				questionId: args.questionId,
+			});
+			await ctx.runMutation(
+				internal.forum.recordQuestionSemanticEmbeddingFailure,
+				{
+					questionId: args.questionId,
+					error: detail,
+					failedAt: Date.now(),
+				},
+			);
 			return {
 				embedded: false,
 				reason: "failed" as const,
+				error: detail,
 			};
 		}
 	},
@@ -203,20 +252,18 @@ export const hybridSearchQuestions = internalAction({
 		limit: v.optional(v.number()),
 	},
 	handler: async (ctx, args): Promise<QuestionSummary[]> => {
-		const sort = args.sort ?? "latest";
 		const normalizedQuery = normalizeOptionalString(args.q);
+		const limit = normalizeLimit(args.limit);
 
 		if (!normalizedQuery) {
 			return await ctx.runQuery(internal.forum.listQuestionSummariesLexical, {
-				sort,
+				sort: "latest",
 				tag: args.tag,
-				q: args.q,
-				limit: args.limit,
+				limit,
 			});
 		}
 
 		const normalizedTag = normalizeOptionalString(args.tag);
-		const limit = normalizeLimit(args.limit);
 		const candidateLimit = getHybridCandidateLimit(limit);
 		const lexicalIds: Id<"questions">[] = await ctx.runQuery(
 			internal.forum.listQuestionLexicalCandidateIds,
@@ -227,26 +274,37 @@ export const hybridSearchQuestions = internalAction({
 		);
 
 		let semanticIds: Id<"questions">[] = [];
+		const activeModel = getEmbeddingConfig()?.model;
 		try {
 			const embedding = await requestEmbedding(normalizedQuery);
-			if (embedding) {
+			if (embedding && activeModel) {
 				const semanticMatches = await ctx.vectorSearch(
 					"questions",
 					"by_semantic_embedding",
 					{
 						vector: embedding.embedding,
 						limit: candidateLimit,
+						filter: (q) => q.eq("semanticEmbeddingModel", activeModel),
 					},
 				);
-				semanticIds = semanticMatches.map((match) => match._id);
+				semanticIds = selectSemanticMatches(
+					semanticMatches,
+					candidateLimit,
+				).map((match) => match._id);
 			}
-		} catch {
+		} catch (error) {
+			logSemanticError("hybridSearchQuestions", error, {
+				q: normalizedQuery,
+				tag: normalizedTag ?? null,
+			});
 			semanticIds = [];
 		}
 
+		const lexicalIdSet = new Set(lexicalIds);
+		const semanticOnlyIds = semanticIds.filter((id) => !lexicalIdSet.has(id));
 		const questionIds: Id<"questions">[] = dedupe([
 			...lexicalIds,
-			...semanticIds,
+			...semanticOnlyIds,
 		]);
 		if (questionIds.length === 0) {
 			return [];
@@ -259,11 +317,30 @@ export const hybridSearchQuestions = internalAction({
 			},
 		);
 
-		return questions
-			.filter((question) =>
-				normalizedTag ? question.tagSlugs.includes(normalizedTag) : true,
-			)
-			.sort((left, right) => compareQuestionSummaries(left, right, sort))
+		const summariesById = new Map(
+			questions.map((question) => [question.id, question]),
+		);
+		const includeQuestion = (
+			question: QuestionSummary | undefined,
+		): question is QuestionSummary =>
+			Boolean(
+				question &&
+					(normalizedTag ? question.tagSlugs.includes(normalizedTag) : true),
+			);
+
+		const lexicalOrdered = lexicalIds
+			.map((id) => summariesById.get(id))
+			.filter(includeQuestion);
+		if (lexicalOrdered.length > 0) {
+			const semanticOrdered = semanticOnlyIds
+				.map((id) => summariesById.get(id))
+				.filter(includeQuestion);
+			return [...lexicalOrdered, ...semanticOrdered].slice(0, limit);
+		}
+
+		return semanticOnlyIds
+			.map((id) => summariesById.get(id))
+			.filter(includeQuestion)
 			.slice(0, limit);
 	},
 });
