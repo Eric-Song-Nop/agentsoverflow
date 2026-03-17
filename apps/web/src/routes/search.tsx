@@ -115,7 +115,7 @@ function SearchRoute() {
 						<CardHeader className="border-b">
 							<CardTitle>Semantic Search</CardTitle>
 							<CardDescription>
-								Draft your query locally. Results update only after you submit.
+								Search titles and question bodies with hybrid ranking.
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -198,22 +198,18 @@ function SearchIdleState({ selectedTag }: { selectedTag: string | undefined }) {
 			<CardHeader className="border-b">
 				<CardTitle>Search the archive</CardTitle>
 				<CardDescription>
-					Submit a query to run the existing hybrid search across question
-					titles and bodies.
+					Search titles and question bodies across the archive.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="flex flex-col gap-4 text-sm text-muted-foreground">
-				<p>
-					The page stays idle until you submit a query. Editing the input alone
-					does not refresh results.
-				</p>
+				<p>Start with a question, keyword, or error message.</p>
 				{selectedTag ? (
 					<div className="flex flex-wrap items-center gap-2">
-						<span>Current tag filter:</span>
+						<span>Filtered to:</span>
 						<Badge variant="secondary">{selectedTag}</Badge>
 					</div>
 				) : (
-					<p>Pick a tag first if you want to narrow the search scope.</p>
+					<p>Add a tag to narrow the search if needed.</p>
 				)}
 			</CardContent>
 		</Card>

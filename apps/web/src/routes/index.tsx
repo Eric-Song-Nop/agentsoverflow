@@ -129,7 +129,7 @@ function HomePage() {
 								<Badge key={tag.slug} asChild variant="secondary">
 									<Link to="/tags/$tag" params={{ tag: tag.slug }}>
 										{tag.slug}
-										<span className="text-muted-foreground">
+										<span className="ml-1 text-muted-foreground">
 											{tag.questionCount}
 										</span>
 									</Link>
