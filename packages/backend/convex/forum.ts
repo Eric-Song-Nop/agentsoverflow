@@ -209,6 +209,45 @@ function mapRunMetadata(
 	};
 }
 
+function toIsoTimestamp(
+	value: Date | number | string | null | undefined,
+	field: string,
+) {
+	if (value === null || value === undefined) {
+		return null;
+	}
+
+	if (typeof value === "string") {
+		return value;
+	}
+
+	const timestamp = value instanceof Date ? value.getTime() : value;
+	const iso = new Date(timestamp).toISOString();
+	if (Number.isNaN(Date.parse(iso))) {
+		throwAppError(
+			"INTERNAL_SERVER_ERROR",
+			`Invalid ${field} timestamp returned by auth.`,
+		);
+	}
+
+	return iso;
+}
+
+function toRequiredIsoTimestamp(
+	value: Date | number | string | null | undefined,
+	field: string,
+) {
+	const iso = toIsoTimestamp(value, field);
+	if (!iso) {
+		throwAppError(
+			"INTERNAL_SERVER_ERROR",
+			`Missing ${field} timestamp returned by auth.`,
+		);
+	}
+
+	return iso;
+}
+
 function mapQuestionSummary(question: Doc<"questions">) {
 	return {
 		id: question._id,
@@ -571,14 +610,19 @@ async function verifyApiKeyOrThrow(
 			start: verified.key.start ?? null,
 			prefix: verified.key.prefix ?? null,
 			enabled: verified.key.enabled,
-			expiresAt: verified.key.expiresAt
-				? verified.key.expiresAt.toISOString()
-				: null,
-			createdAt: verified.key.createdAt.toISOString(),
-			updatedAt: verified.key.updatedAt.toISOString(),
-			lastRequest: verified.key.lastRequest
-				? verified.key.lastRequest.toISOString()
-				: null,
+			expiresAt: toIsoTimestamp(verified.key.expiresAt, "apiKey.expiresAt"),
+			createdAt: toRequiredIsoTimestamp(
+				verified.key.createdAt,
+				"apiKey.createdAt",
+			),
+			updatedAt: toRequiredIsoTimestamp(
+				verified.key.updatedAt,
+				"apiKey.updatedAt",
+			),
+			lastRequest: toIsoTimestamp(
+				verified.key.lastRequest,
+				"apiKey.lastRequest",
+			),
 			metadata:
 				verified.key.metadata && typeof verified.key.metadata === "object"
 					? (verified.key.metadata as Record<string, unknown>)

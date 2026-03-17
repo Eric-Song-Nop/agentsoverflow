@@ -125,6 +125,7 @@ function toErrorResponse(error: unknown) {
 		rawCode === "ArgumentValidationError" ||
 		rawCode === "ValidationError" ||
 		/validation/i.test(rawCode) ||
+		/validator/i.test(rawCode) ||
 		/validator/i.test(rawDetail) ||
 		/value does not match/i.test(rawDetail) ||
 		/object is missing/i.test(rawDetail) ||

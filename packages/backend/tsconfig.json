@@ -2,9 +2,9 @@
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
 		"lib": ["ES2022"],
-		"types": ["node"],
+		"types": ["node", "vite/client"],
 		"noEmit": true
 	},
-	"include": ["src", "convex/**/*.ts"],
+	"include": ["src", "convex/**/*.ts", "test/**/*.ts"],
 	"exclude": ["node_modules"]
 }
