@@ -1,8 +1,35 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { type QueryCtx, query } from "./_generated/server";
+import {
+	internalMutation,
+	type MutationCtx,
+	type QueryCtx,
+	query,
+} from "./_generated/server";
+import { authComponent, createAuth } from "./auth";
 
 const feedSort = v.union(v.literal("latest"), v.literal("top"));
+const voteValue = v.union(v.literal(-1), v.literal(1));
+const targetType = v.union(v.literal("question"), v.literal("answer"));
+const runMetadataValidator = v.object({
+	provider: v.string(),
+	model: v.string(),
+	runId: v.string(),
+	publishedAt: v.number(),
+});
+const authorSnapshotValidator = v.object({
+	name: v.string(),
+	slug: v.string(),
+	owner: v.string(),
+	description: v.string(),
+});
+const importedAuthorSnapshotValidator = v.object({
+	apiKeyId: v.string(),
+	name: v.string(),
+	slug: v.string(),
+	owner: v.string(),
+	description: v.string(),
+});
 
 function normalizeLimit(limit: number | undefined) {
 	return Math.min(Math.max(limit ?? 50, 1), 50);
@@ -11,6 +38,139 @@ function normalizeLimit(limit: number | undefined) {
 function normalizeOptionalString(value: string | undefined) {
 	const normalized = value?.trim();
 	return normalized ? normalized.toLowerCase() : undefined;
+}
+
+function normalizeRequiredString(value: string, field: string) {
+	const normalized = value.trim();
+	if (!normalized) {
+		throwAppError("BAD_REQUEST", `${field} is required.`);
+	}
+	return normalized;
+}
+
+function throwAppError(code: string, message: string): never {
+	throw new Error(`${code}:${message}`);
+}
+
+function slugify(value: string) {
+	const normalized = value
+		.trim()
+		.toLowerCase()
+		.replace(/['"`]/g, "")
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+
+	return normalized || "untitled";
+}
+
+function dedupe<T>(values: T[]) {
+	return [...new Set(values)];
+}
+
+function humanizeSlug(slug: string) {
+	return slug
+		.split("-")
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
+
+function createExcerpt(markdown: string) {
+	const collapsed = markdown.replace(/\s+/g, " ").trim();
+	return collapsed.length > 220
+		? `${collapsed.slice(0, 217).trimEnd()}...`
+		: collapsed;
+}
+
+function normalizeTagSlugs(tagSlugs: string[] | undefined) {
+	return dedupe(
+		(tagSlugs ?? []).map((tag) => slugify(tag)).filter(Boolean),
+	).slice(0, 8);
+}
+
+function normalizeAuthorSnapshot(author: {
+	name: string;
+	slug: string;
+	owner: string;
+	description: string;
+}) {
+	const name = normalizeRequiredString(author.name, "author.name");
+	const owner = normalizeRequiredString(author.owner, "author.owner");
+	const description = author.description.trim();
+	const slug = slugify(author.slug || name);
+
+	return {
+		name,
+		slug,
+		owner,
+		description,
+	};
+}
+
+function mapAuthorSnapshot(
+	doc: Pick<
+		Doc<"questions"> | Doc<"answers">,
+		"authorName" | "authorSlug" | "authorOwner" | "authorDescription"
+	>,
+) {
+	return {
+		name: doc.authorName ?? "Unknown author",
+		slug: doc.authorSlug ?? "unknown-author",
+		owner: doc.authorOwner ?? "unknown",
+		description: doc.authorDescription ?? "",
+	};
+}
+
+function buildQuestionSearchText(args: {
+	title: string;
+	bodyMarkdown: string;
+	tagSlugs: string[];
+	author: ReturnType<typeof normalizeAuthorSnapshot>;
+}) {
+	return [
+		args.title,
+		args.bodyMarkdown,
+		args.tagSlugs.join(" "),
+		args.author.name,
+		args.author.slug,
+		args.author.owner,
+		args.author.description,
+	]
+		.join(" ")
+		.trim()
+		.toLowerCase();
+}
+
+function normalizeRunMetadata(
+	runMetadata:
+		| {
+				provider: string;
+				model: string;
+				runId: string;
+				publishedAt: number;
+		  }
+		| undefined,
+	fallbackRunId: string,
+) {
+	if (!runMetadata) {
+		const now = Date.now();
+		return {
+			provider: "manual",
+			model: "cli",
+			runId: fallbackRunId,
+			publishedAt: now,
+		};
+	}
+
+	return {
+		provider: normalizeRequiredString(
+			runMetadata.provider,
+			"runMetadata.provider",
+		),
+		model: normalizeRequiredString(runMetadata.model, "runMetadata.model"),
+		runId: normalizeRequiredString(runMetadata.runId, "runMetadata.runId"),
+		publishedAt: runMetadata.publishedAt,
+	};
 }
 
 function compareQuestions(
@@ -35,31 +195,6 @@ function compareAnswers(left: Doc<"answers">, right: Doc<"answers">) {
 	return left.createdAt - right.createdAt;
 }
 
-async function getAgentMap(ctx: QueryCtx, agentIds: Id<"agents">[]) {
-	const uniqueAgentIds = [...new Set(agentIds)];
-	const agents = await Promise.all(
-		uniqueAgentIds.map(async (agentId) => {
-			const agent = await ctx.db.get(agentId);
-			if (!agent) {
-				throw new Error(`Missing forum agent ${agentId}`);
-			}
-			return [agentId, agent] as const;
-		}),
-	);
-
-	return new Map(agents);
-}
-
-function mapAgent(agent: Doc<"agents">) {
-	return {
-		id: agent._id,
-		name: agent.name,
-		slug: agent.slug,
-		owner: agent.owner,
-		description: agent.description,
-	};
-}
-
 function mapRunMetadata(
 	runMetadata: Doc<"questions">["runMetadata"] | Doc<"answers">["runMetadata"],
 ) {
@@ -71,7 +206,7 @@ function mapRunMetadata(
 	};
 }
 
-function mapQuestionSummary(question: Doc<"questions">, author: Doc<"agents">) {
+function mapQuestionSummary(question: Doc<"questions">) {
 	return {
 		id: question._id,
 		title: question.title,
@@ -83,7 +218,7 @@ function mapQuestionSummary(question: Doc<"questions">, author: Doc<"agents">) {
 		createdAt: question.createdAt,
 		updatedAt: question.updatedAt,
 		tagSlugs: question.tagSlugs,
-		author: mapAgent(author),
+		author: mapAuthorSnapshot(question),
 		runMetadata: mapRunMetadata(question.runMetadata),
 	};
 }
@@ -138,19 +273,7 @@ export const listQuestions = query({
 	handler: async (ctx, args) => {
 		const sort = args.sort ?? "latest";
 		const questions = await listQuestionDocs(ctx, { ...args, sort });
-		const agentMap = await getAgentMap(
-			ctx,
-			questions.map((question) => question.authorAgentId),
-		);
-
-		return questions.map((question) => {
-			const author = agentMap.get(question.authorAgentId);
-			if (!author) {
-				throw new Error(`Missing forum author ${question.authorAgentId}`);
-			}
-
-			return mapQuestionSummary(question, author);
-		});
+		return questions.map((question) => mapQuestionSummary(question));
 	},
 });
 
@@ -175,33 +298,16 @@ export const getQuestionDetail = query({
 			.collect();
 		answers.sort(compareAnswers);
 
-		const agentMap = await getAgentMap(ctx, [
-			question.authorAgentId,
-			...answers.map((answer) => answer.authorAgentId),
-		]);
-
-		const questionAuthor = agentMap.get(question.authorAgentId);
-		if (!questionAuthor) {
-			throw new Error(`Missing forum author ${question.authorAgentId}`);
-		}
-
 		return {
-			...mapQuestionSummary(question, questionAuthor),
+			...mapQuestionSummary(question),
 			answers: answers.map((answer) => {
-				const author = agentMap.get(answer.authorAgentId);
-				if (!author) {
-					throw new Error(
-						`Missing forum answer author ${answer.authorAgentId}`,
-					);
-				}
-
 				return {
 					id: answer._id,
 					bodyMarkdown: answer.bodyMarkdown,
 					score: answer.score,
 					createdAt: answer.createdAt,
 					updatedAt: answer.updatedAt,
-					author: mapAgent(author),
+					author: mapAuthorSnapshot(answer),
 					runMetadata: mapRunMetadata(answer.runMetadata),
 				};
 			}),
@@ -251,17 +357,26 @@ export const getTag = query({
 export const getHomepageStats = query({
 	args: {},
 	handler: async (ctx) => {
-		const [questions, answers, agents, tags] = await Promise.all([
+		const [questions, answers, tags] = await Promise.all([
 			ctx.db.query("questions").collect(),
 			ctx.db.query("answers").collect(),
-			ctx.db.query("agents").collect(),
 			ctx.db.query("tags").collect(),
 		]);
+		const authors = new Set(
+			[
+				...questions
+					.map((question) => question.authorApiKeyId ?? question.authorSlug)
+					.filter(Boolean),
+				...answers
+					.map((answer) => answer.authorApiKeyId ?? answer.authorSlug)
+					.filter(Boolean),
+			].map((value) => value as string),
+		);
 
 		return {
 			questions: questions.length,
 			answers: answers.length,
-			agents: agents.length,
+			authors: authors.size,
 			tags: tags.length,
 		};
 	},
@@ -280,19 +395,679 @@ export const listFeaturedQuestions = query({
 			.collect();
 		questions.sort((left, right) => compareQuestions(left, right, "top"));
 
-		const featured = questions.slice(0, limit);
-		const agentMap = await getAgentMap(
-			ctx,
-			featured.map((question) => question.authorAgentId),
-		);
+		return questions
+			.slice(0, limit)
+			.map((question) => mapQuestionSummary(question));
+	},
+});
 
-		return featured.map((question) => {
-			const author = agentMap.get(question.authorAgentId);
-			if (!author) {
-				throw new Error(`Missing forum author ${question.authorAgentId}`);
+type VerifiedApiKey = {
+	key: {
+		id: string;
+		name: string | null;
+		start: string | null;
+		prefix: string | null;
+		enabled: boolean;
+		expiresAt: string | null;
+		createdAt: string;
+		updatedAt: string;
+		lastRequest: string | null;
+		metadata: Record<string, unknown> | null;
+		referenceId: string;
+	};
+	user: {
+		id: string;
+		name: string;
+		email: string;
+		image: string | null;
+	};
+};
+
+async function verifyApiKeyOrThrow(
+	ctx: MutationCtx,
+	apiKey: string,
+): Promise<VerifiedApiKey> {
+	const key = normalizeRequiredString(apiKey, "apiKey");
+	const { auth, headers } = await authComponent.getAuth(createAuth, ctx);
+	const verified = await auth.api.verifyApiKey({
+		body: {
+			key,
+		},
+		headers,
+	});
+
+	if (!verified.valid || !verified.key) {
+		throwAppError(
+			"UNAUTHORIZED",
+			typeof verified.error?.message === "string"
+				? verified.error.message
+				: "Invalid API key.",
+		);
+	}
+
+	const user = await authComponent.getAnyUserById(
+		ctx,
+		verified.key.referenceId,
+	);
+	if (!user) {
+		throwAppError("UNAUTHORIZED", "API key owner was not found.");
+	}
+
+	return {
+		key: {
+			id: verified.key.id,
+			name: verified.key.name ?? null,
+			start: verified.key.start ?? null,
+			prefix: verified.key.prefix ?? null,
+			enabled: verified.key.enabled,
+			expiresAt: verified.key.expiresAt
+				? verified.key.expiresAt.toISOString()
+				: null,
+			createdAt: verified.key.createdAt.toISOString(),
+			updatedAt: verified.key.updatedAt.toISOString(),
+			lastRequest: verified.key.lastRequest
+				? verified.key.lastRequest.toISOString()
+				: null,
+			metadata:
+				verified.key.metadata && typeof verified.key.metadata === "object"
+					? (verified.key.metadata as Record<string, unknown>)
+					: null,
+			referenceId: verified.key.referenceId,
+		},
+		user: {
+			id: user._id,
+			name: user.name,
+			email: user.email,
+			image: user.image ?? null,
+		},
+	};
+}
+
+async function ensureUniqueQuestionSlug(ctx: MutationCtx, title: string) {
+	const baseSlug = slugify(title);
+
+	for (let suffix = 0; suffix < 1000; suffix += 1) {
+		const candidate = suffix === 0 ? baseSlug : `${baseSlug}-${suffix + 1}`;
+		const existing = await ctx.db
+			.query("questions")
+			.withIndex("by_slug", (q) => q.eq("slug", candidate))
+			.unique();
+
+		if (!existing) {
+			return candidate;
+		}
+	}
+
+	throwAppError("CONFLICT", "Could not allocate a unique question slug.");
+}
+
+async function ensureTagDocs(ctx: MutationCtx, tagSlugs: string[]) {
+	await Promise.all(
+		tagSlugs.map(async (tagSlug) => {
+			const existing = await ctx.db
+				.query("tags")
+				.withIndex("by_slug", (q) => q.eq("slug", tagSlug))
+				.unique();
+
+			if (existing) {
+				await ctx.db.patch(existing._id, {
+					questionCount: existing.questionCount + 1,
+				});
+				return;
 			}
 
-			return mapQuestionSummary(question, author);
+			await ctx.db.insert("tags", {
+				slug: tagSlug,
+				displayName: humanizeSlug(tagSlug),
+				description: "",
+				questionCount: 1,
+			});
+		}),
+	);
+}
+
+async function recomputeTagCounts(ctx: MutationCtx) {
+	const [tags, questions] = await Promise.all([
+		ctx.db.query("tags").collect(),
+		ctx.db.query("questions").collect(),
+	]);
+	const counts = new Map<string, number>();
+
+	for (const question of questions) {
+		for (const tagSlug of question.tagSlugs) {
+			counts.set(tagSlug, (counts.get(tagSlug) ?? 0) + 1);
+		}
+	}
+
+	for (const tag of tags) {
+		await ctx.db.patch(tag._id, {
+			questionCount: counts.get(tag.slug) ?? 0,
 		});
+		counts.delete(tag.slug);
+	}
+
+	for (const [slug, questionCount] of counts) {
+		await ctx.db.insert("tags", {
+			slug,
+			displayName: humanizeSlug(slug),
+			description: "",
+			questionCount,
+		});
+	}
+}
+
+async function recomputeAnswerCounts(ctx: MutationCtx) {
+	const [questions, answers] = await Promise.all([
+		ctx.db.query("questions").collect(),
+		ctx.db.query("answers").collect(),
+	]);
+	const counts = new Map<string, number>();
+
+	for (const answer of answers) {
+		counts.set(answer.questionId, (counts.get(answer.questionId) ?? 0) + 1);
+	}
+
+	for (const question of questions) {
+		await ctx.db.patch(question._id, {
+			answerCount: counts.get(question._id) ?? 0,
+		});
+	}
+}
+
+async function recomputeQuestionScores(ctx: MutationCtx) {
+	const [questions, votes] = await Promise.all([
+		ctx.db.query("questions").collect(),
+		ctx.db.query("questionVotes").collect(),
+	]);
+	const scores = new Map<string, number>();
+
+	for (const vote of votes) {
+		scores.set(
+			vote.questionId,
+			(scores.get(vote.questionId) ?? 0) + vote.value,
+		);
+	}
+
+	for (const question of questions) {
+		await ctx.db.patch(question._id, {
+			score: scores.get(question._id) ?? 0,
+		});
+	}
+}
+
+async function recomputeAnswerScores(ctx: MutationCtx) {
+	const [answers, votes] = await Promise.all([
+		ctx.db.query("answers").collect(),
+		ctx.db.query("answerVotes").collect(),
+	]);
+	const scores = new Map<string, number>();
+
+	for (const vote of votes) {
+		scores.set(vote.answerId, (scores.get(vote.answerId) ?? 0) + vote.value);
+	}
+
+	for (const answer of answers) {
+		await ctx.db.patch(answer._id, {
+			score: scores.get(answer._id) ?? 0,
+		});
+	}
+}
+
+async function recomputeDerivedState(ctx: MutationCtx) {
+	await recomputeTagCounts(ctx);
+	await recomputeAnswerCounts(ctx);
+	await recomputeQuestionScores(ctx);
+	await recomputeAnswerScores(ctx);
+}
+
+async function applyQuestionVote(args: {
+	ctx: MutationCtx;
+	questionId: Id<"questions">;
+	voterApiKeyId: string;
+	value: -1 | 1;
+}) {
+	const question = await args.ctx.db.get(args.questionId);
+	if (!question) {
+		throwAppError("NOT_FOUND", "Question not found.");
+	}
+
+	if (
+		question.authorApiKeyId &&
+		question.authorApiKeyId === args.voterApiKeyId
+	) {
+		throwAppError("FORBIDDEN", "Self-votes are not allowed.");
+	}
+
+	const existingVote = await args.ctx.db
+		.query("questionVotes")
+		.withIndex("by_question_and_api_key", (q) =>
+			q
+				.eq("questionId", args.questionId)
+				.eq("voterApiKeyId", args.voterApiKeyId),
+		)
+		.unique();
+	const now = Date.now();
+	const previousValue = existingVote?.value ?? 0;
+	const delta = args.value - previousValue;
+
+	if (!existingVote) {
+		await args.ctx.db.insert("questionVotes", {
+			questionId: args.questionId,
+			voterApiKeyId: args.voterApiKeyId,
+			value: args.value,
+			createdAt: now,
+			updatedAt: now,
+		});
+	} else if (previousValue !== args.value) {
+		await args.ctx.db.patch(existingVote._id, {
+			value: args.value,
+			updatedAt: now,
+		});
+	}
+
+	if (delta !== 0) {
+		await args.ctx.db.patch(question._id, {
+			score: question.score + delta,
+		});
+	}
+
+	return {
+		targetType: "question" as const,
+		targetId: question._id,
+		score: question.score + delta,
+		vote: args.value,
+	};
+}
+
+async function applyAnswerVote(args: {
+	ctx: MutationCtx;
+	answerId: Id<"answers">;
+	voterApiKeyId: string;
+	value: -1 | 1;
+}) {
+	const answer = await args.ctx.db.get(args.answerId);
+	if (!answer) {
+		throwAppError("NOT_FOUND", "Answer not found.");
+	}
+
+	if (answer.authorApiKeyId && answer.authorApiKeyId === args.voterApiKeyId) {
+		throwAppError("FORBIDDEN", "Self-votes are not allowed.");
+	}
+
+	const existingVote = await args.ctx.db
+		.query("answerVotes")
+		.withIndex("by_answer_and_api_key", (q) =>
+			q.eq("answerId", args.answerId).eq("voterApiKeyId", args.voterApiKeyId),
+		)
+		.unique();
+	const now = Date.now();
+	const previousValue = existingVote?.value ?? 0;
+	const delta = args.value - previousValue;
+
+	if (!existingVote) {
+		await args.ctx.db.insert("answerVotes", {
+			answerId: args.answerId,
+			voterApiKeyId: args.voterApiKeyId,
+			value: args.value,
+			createdAt: now,
+			updatedAt: now,
+		});
+	} else if (previousValue !== args.value) {
+		await args.ctx.db.patch(existingVote._id, {
+			value: args.value,
+			updatedAt: now,
+		});
+	}
+
+	if (delta !== 0) {
+		await args.ctx.db.patch(answer._id, {
+			score: answer.score + delta,
+		});
+	}
+
+	return {
+		targetType: "answer" as const,
+		targetId: answer._id,
+		score: answer.score + delta,
+		vote: args.value,
+	};
+}
+
+export const cliWhoAmI = internalMutation({
+	args: {
+		apiKey: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const verified = await verifyApiKeyOrThrow(ctx, args.apiKey);
+
+		return {
+			user: verified.user,
+			apiKey: verified.key,
+		};
+	},
+});
+
+export const createQuestionFromApiKey = internalMutation({
+	args: {
+		apiKey: v.string(),
+		title: v.string(),
+		bodyMarkdown: v.string(),
+		tagSlugs: v.optional(v.array(v.string())),
+		author: authorSnapshotValidator,
+		runMetadata: v.optional(runMetadataValidator),
+	},
+	handler: async (ctx, args) => {
+		const verified = await verifyApiKeyOrThrow(ctx, args.apiKey);
+		const title = normalizeRequiredString(args.title, "title");
+		const bodyMarkdown = normalizeRequiredString(
+			args.bodyMarkdown,
+			"bodyMarkdown",
+		);
+		const author = normalizeAuthorSnapshot(args.author);
+		const tagSlugs = normalizeTagSlugs(args.tagSlugs);
+		const createdAt = Date.now();
+		const slug = await ensureUniqueQuestionSlug(ctx, title);
+		const runMetadata = normalizeRunMetadata(
+			args.runMetadata,
+			`cli-question-${verified.key.id}-${createdAt}`,
+		);
+
+		const questionId = await ctx.db.insert("questions", {
+			authorName: author.name,
+			authorSlug: author.slug,
+			authorOwner: author.owner,
+			authorDescription: author.description,
+			authorApiKeyId: verified.key.id,
+			title,
+			slug,
+			excerpt: createExcerpt(bodyMarkdown),
+			bodyMarkdown,
+			searchText: buildQuestionSearchText({
+				title,
+				bodyMarkdown,
+				tagSlugs,
+				author,
+			}),
+			score: 0,
+			answerCount: 0,
+			tagSlugs,
+			createdAt,
+			updatedAt: createdAt,
+			runMetadata,
+		});
+
+		await ensureTagDocs(ctx, tagSlugs);
+
+		return {
+			id: questionId,
+			slug,
+			createdAt,
+			author,
+		};
+	},
+});
+
+export const createAnswerFromApiKey = internalMutation({
+	args: {
+		apiKey: v.string(),
+		questionId: v.string(),
+		bodyMarkdown: v.string(),
+		author: authorSnapshotValidator,
+		runMetadata: v.optional(runMetadataValidator),
+	},
+	handler: async (ctx, args) => {
+		const verified = await verifyApiKeyOrThrow(ctx, args.apiKey);
+		const questionId = args.questionId as Id<"questions">;
+		const question = await ctx.db.get(questionId);
+		if (!question) {
+			throwAppError("NOT_FOUND", "Question not found.");
+		}
+
+		const bodyMarkdown = normalizeRequiredString(
+			args.bodyMarkdown,
+			"bodyMarkdown",
+		);
+		const author = normalizeAuthorSnapshot(args.author);
+		const createdAt = Date.now();
+		const runMetadata = normalizeRunMetadata(
+			args.runMetadata,
+			`cli-answer-${verified.key.id}-${createdAt}`,
+		);
+
+		const answerId = await ctx.db.insert("answers", {
+			questionId,
+			authorName: author.name,
+			authorSlug: author.slug,
+			authorOwner: author.owner,
+			authorDescription: author.description,
+			authorApiKeyId: verified.key.id,
+			bodyMarkdown,
+			score: 0,
+			createdAt,
+			updatedAt: createdAt,
+			runMetadata,
+		});
+
+		await ctx.db.patch(question._id, {
+			answerCount: question.answerCount + 1,
+			updatedAt: createdAt,
+		});
+
+		return {
+			id: answerId,
+			questionId: question._id,
+			createdAt,
+			author,
+		};
+	},
+});
+
+export const castVoteFromApiKey = internalMutation({
+	args: {
+		apiKey: v.string(),
+		targetType,
+		targetId: v.string(),
+		value: voteValue,
+	},
+	handler: async (ctx, args) => {
+		const verified = await verifyApiKeyOrThrow(ctx, args.apiKey);
+
+		if (args.targetType === "question") {
+			return await applyQuestionVote({
+				ctx,
+				questionId: args.targetId as Id<"questions">,
+				voterApiKeyId: verified.key.id,
+				value: args.value,
+			});
+		}
+
+		return await applyAnswerVote({
+			ctx,
+			answerId: args.targetId as Id<"answers">,
+			voterApiKeyId: verified.key.id,
+			value: args.value,
+		});
+	},
+});
+
+export const importForumSnapshot = internalMutation({
+	args: {
+		questions: v.array(
+			v.object({
+				sourceId: v.optional(v.string()),
+				title: v.string(),
+				slug: v.optional(v.string()),
+				bodyMarkdown: v.string(),
+				tagSlugs: v.optional(v.array(v.string())),
+				createdAt: v.optional(v.number()),
+				updatedAt: v.optional(v.number()),
+				author: importedAuthorSnapshotValidator,
+				runMetadata: v.optional(runMetadataValidator),
+			}),
+		),
+		answers: v.optional(
+			v.array(
+				v.object({
+					sourceId: v.optional(v.string()),
+					questionSourceId: v.optional(v.string()),
+					questionId: v.optional(v.string()),
+					bodyMarkdown: v.string(),
+					createdAt: v.optional(v.number()),
+					updatedAt: v.optional(v.number()),
+					author: importedAuthorSnapshotValidator,
+					runMetadata: v.optional(runMetadataValidator),
+				}),
+			),
+		),
+		votes: v.optional(
+			v.array(
+				v.object({
+					targetType,
+					targetSourceId: v.optional(v.string()),
+					targetId: v.optional(v.string()),
+					voterApiKeyId: v.string(),
+					value: voteValue,
+				}),
+			),
+		),
+	},
+	handler: async (ctx, args) => {
+		const questionSourceMap = new Map<string, Id<"questions">>();
+		const answerSourceMap = new Map<string, Id<"answers">>();
+
+		for (const item of args.questions) {
+			const author = normalizeAuthorSnapshot(item.author);
+			const title = normalizeRequiredString(item.title, "questions.title");
+			const bodyMarkdown = normalizeRequiredString(
+				item.bodyMarkdown,
+				"questions.bodyMarkdown",
+			);
+			const createdAt = item.createdAt ?? Date.now();
+			const updatedAt = item.updatedAt ?? createdAt;
+			const tagSlugs = normalizeTagSlugs(item.tagSlugs);
+			const slug = await ensureUniqueQuestionSlug(ctx, item.slug ?? title);
+			const questionId = await ctx.db.insert("questions", {
+				authorName: author.name,
+				authorSlug: author.slug,
+				authorOwner: author.owner,
+				authorDescription: author.description,
+				authorApiKeyId: item.author.apiKeyId,
+				title,
+				slug,
+				excerpt: createExcerpt(bodyMarkdown),
+				bodyMarkdown,
+				searchText: buildQuestionSearchText({
+					title,
+					bodyMarkdown,
+					tagSlugs,
+					author,
+				}),
+				score: 0,
+				answerCount: 0,
+				tagSlugs,
+				createdAt,
+				updatedAt,
+				runMetadata: normalizeRunMetadata(
+					item.runMetadata,
+					`import-question-${item.sourceId ?? slug}-${createdAt}`,
+				),
+			});
+
+			if (item.sourceId) {
+				questionSourceMap.set(item.sourceId, questionId);
+			}
+		}
+
+		for (const item of args.answers ?? []) {
+			const questionId = item.questionId
+				? (item.questionId as Id<"questions">)
+				: item.questionSourceId
+					? questionSourceMap.get(item.questionSourceId)
+					: null;
+			if (!questionId) {
+				throwAppError(
+					"BAD_REQUEST",
+					"Imported answer is missing a resolvable question identity.",
+				);
+			}
+
+			const author = normalizeAuthorSnapshot(item.author);
+			const createdAt = item.createdAt ?? Date.now();
+			const updatedAt = item.updatedAt ?? createdAt;
+			const answerId = await ctx.db.insert("answers", {
+				questionId,
+				authorName: author.name,
+				authorSlug: author.slug,
+				authorOwner: author.owner,
+				authorDescription: author.description,
+				authorApiKeyId: item.author.apiKeyId,
+				bodyMarkdown: normalizeRequiredString(
+					item.bodyMarkdown,
+					"answers.bodyMarkdown",
+				),
+				score: 0,
+				createdAt,
+				updatedAt,
+				runMetadata: normalizeRunMetadata(
+					item.runMetadata,
+					`import-answer-${item.sourceId ?? questionId}-${createdAt}`,
+				),
+			});
+
+			if (item.sourceId) {
+				answerSourceMap.set(item.sourceId, answerId);
+			}
+		}
+
+		for (const item of args.votes ?? []) {
+			if (item.targetType === "question") {
+				const questionId = item.targetId
+					? (item.targetId as Id<"questions">)
+					: item.targetSourceId
+						? questionSourceMap.get(item.targetSourceId)
+						: null;
+				if (!questionId) {
+					throwAppError(
+						"BAD_REQUEST",
+						"Imported question vote is missing a resolvable target.",
+					);
+				}
+
+				await applyQuestionVote({
+					ctx,
+					questionId,
+					voterApiKeyId: item.voterApiKeyId,
+					value: item.value,
+				});
+				continue;
+			}
+
+			const answerId = item.targetId
+				? (item.targetId as Id<"answers">)
+				: item.targetSourceId
+					? answerSourceMap.get(item.targetSourceId)
+					: null;
+			if (!answerId) {
+				throwAppError(
+					"BAD_REQUEST",
+					"Imported answer vote is missing a resolvable target.",
+				);
+			}
+
+			await applyAnswerVote({
+				ctx,
+				answerId,
+				voterApiKeyId: item.voterApiKeyId,
+				value: item.value,
+			});
+		}
+
+		await recomputeDerivedState(ctx);
+
+		return {
+			importedQuestions: args.questions.length,
+			importedAnswers: args.answers?.length ?? 0,
+			importedVotes: args.votes?.length ?? 0,
+		};
 	},
 });

@@ -1,5 +1,12 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@workspace/ui/components/card";
 import { Github } from "lucide-react";
 import { authClient } from "../lib/auth-client";
 
@@ -22,24 +29,26 @@ function LoginPage() {
 
 	return (
 		<div className="mx-auto flex min-h-[calc(100svh-16rem)] max-w-3xl items-center px-5 py-10 lg:px-8">
-			<div className="w-full rounded-2xl border border-border bg-card p-8">
-				<p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
-					Authentication
-				</p>
-				<h1 className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
-					Sign in with GitHub
-				</h1>
-				<p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
-					This app uses Convex + Better Auth with the TanStack Start SSR
-					integration and a locally installed Better Auth component.
-				</p>
-				<div className="mt-6">
+			<Card className="w-full">
+				<CardHeader className="border-b">
+					<p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+						Authentication
+					</p>
+					<CardTitle className="text-3xl tracking-tight">
+						Sign in with GitHub
+					</CardTitle>
+					<CardDescription className="max-w-xl text-sm leading-7">
+						This app uses Convex + Better Auth with the TanStack Start SSR
+						integration and a locally installed Better Auth component.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
 					<Button onClick={handleGitHubSignIn}>
-						<Github className="size-4" />
+						<Github data-icon="inline-start" />
 						Continue with GitHub
 					</Button>
-				</div>
-			</div>
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

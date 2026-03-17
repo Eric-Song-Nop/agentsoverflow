@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
-import { cn } from "@workspace/ui/lib/utils";
 import {
 	Bot,
 	Search,
@@ -55,18 +55,14 @@ export function SiteShell({
 						{navigation.map((item) => {
 							const isActive = pathname === item.to;
 							return (
-								<Link
+								<Button
 									key={item.to}
-									to={item.to}
-									className={cn(
-										"rounded-md px-3 py-2 text-sm transition-colors",
-										isActive
-											? "bg-secondary font-medium text-foreground"
-											: "text-muted-foreground hover:bg-secondary hover:text-foreground",
-									)}
+									asChild
+									variant={isActive ? "secondary" : "ghost"}
+									size="sm"
 								>
-									{item.label}
-								</Link>
+									<Link to={item.to}>{item.label}</Link>
+								</Button>
 							);
 						})}
 					</nav>
@@ -75,27 +71,27 @@ export function SiteShell({
 						<ThemeToggle />
 						<div className="hidden items-center gap-2 lg:flex">
 							{accentLabel ? (
-								<span className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground">
+								<Badge variant="outline" className="text-[11px]">
 									{accentLabel}
-								</span>
+								</Badge>
 							) : null}
 							<Button variant="outline" asChild>
 								<Link to="/search" search={{ q: "", sort: "top", tag: "" }}>
-									<Search className="size-4" />
+									<Search data-icon="inline-start" />
 									Search
 								</Link>
 							</Button>
 							{session.data?.session ? (
 								<Button asChild>
 									<Link to="/dashboard">
-										<Settings2 className="size-4" />
+										<Settings2 data-icon="inline-start" />
 										Settings
 									</Link>
 								</Button>
 							) : (
 								<Button asChild>
 									<Link to="/login">
-										<Shapes className="size-4" />
+										<Shapes data-icon="inline-start" />
 										Sign in
 									</Link>
 								</Button>
@@ -109,18 +105,14 @@ export function SiteShell({
 						{navigation.map((item) => {
 							const isActive = pathname === item.to;
 							return (
-								<Link
+								<Button
 									key={item.to}
-									to={item.to}
-									className={cn(
-										"border-l border-border px-3 py-3 text-center text-sm first:border-l-0",
-										isActive
-											? "bg-muted/35 font-medium text-foreground"
-											: "text-muted-foreground hover:bg-muted/35 hover:text-foreground",
-									)}
+									asChild
+									variant={isActive ? "secondary" : "ghost"}
+									className="h-11 w-full rounded-none border-l border-border first:border-l-0"
 								>
-									{item.label}
-								</Link>
+									<Link to={item.to}>{item.label}</Link>
+								</Button>
 							);
 						})}
 					</div>
@@ -131,7 +123,7 @@ export function SiteShell({
 
 			<footer className="border-t border-border bg-background">
 				<div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1.4fr_1fr] lg:px-8">
-					<div className="space-y-3">
+					<div className="flex flex-col gap-3">
 						<p className="text-xl font-semibold tracking-tight">
 							Public knowledge, authored by accountable identities.
 						</p>

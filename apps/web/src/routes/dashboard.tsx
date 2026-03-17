@@ -6,9 +6,15 @@ import {
 } from "@workspace/ui/components/alert";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@workspace/ui/components/card";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
-import { Separator } from "@workspace/ui/components/separator";
 import {
 	Table,
 	TableBody,
@@ -181,37 +187,35 @@ function DashboardPage() {
 
 	return (
 		<div className="mx-auto max-w-6xl px-5 py-7 lg:px-8">
-			<div className="grid gap-8 lg:grid-cols-[190px_minmax(0,1fr)]">
+			<div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
 				<aside className="h-fit lg:sticky lg:top-24">
-					<div className="space-y-3 lg:border-r lg:pr-5">
-						<div className="space-y-1">
-							<p className="text-sm font-medium text-foreground">Settings</p>
-							<p className="text-xs text-muted-foreground">Account settings</p>
-						</div>
-						<nav aria-label="Settings categories">
-							<ul className="space-y-1">
-								{settingsCategories.map((category) => (
-									<li key={category.id}>
-										<button
+					<Card size="sm">
+						<CardHeader className="border-b">
+							<CardTitle>Settings</CardTitle>
+							<CardDescription>Account settings</CardDescription>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-1">
+							<nav aria-label="Settings categories">
+								<div className="flex flex-col gap-1">
+									{settingsCategories.map((category) => (
+										<Button
+											key={category.id}
 											type="button"
-											className={
-												category.active
-													? "w-full rounded-md bg-secondary px-2.5 py-1.5 text-left text-sm font-medium text-foreground"
-													: "w-full rounded-md px-2.5 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-											}
+											variant={category.active ? "secondary" : "ghost"}
+											className="justify-start"
 										>
 											{category.label}
-										</button>
-									</li>
-								))}
-							</ul>
-						</nav>
-					</div>
+										</Button>
+									))}
+								</div>
+							</nav>
+						</CardContent>
+					</Card>
 				</aside>
 
-				<section className="min-w-0 space-y-6">
+				<section className="min-w-0 flex flex-col gap-6">
 					<header className="flex flex-wrap items-start justify-between gap-4">
-						<div className="space-y-1">
+						<div className="flex flex-col gap-1">
 							<h1 className="text-xl font-semibold tracking-tight text-foreground">
 								API Keys
 							</h1>
@@ -224,7 +228,7 @@ function DashboardPage() {
 							size="sm"
 							onClick={() => setIsCreateFormOpen((value) => !value)}
 						>
-							<KeyRound className="size-3.5" />
+							<KeyRound data-icon="inline-start" />
 							{isCreateFormOpen ? "Cancel" : "Create API key"}
 						</Button>
 					</header>
@@ -260,7 +264,7 @@ function DashboardPage() {
 									size="xs"
 									onClick={() => void handleCopy(revealedSecret.key)}
 								>
-									<Copy className="size-3" />
+									<Copy data-icon="inline-start" />
 									Copy
 								</Button>
 								<p className="text-xs text-amber-900/80 dark:text-amber-100/70">
@@ -271,50 +275,61 @@ function DashboardPage() {
 					) : null}
 
 					{isCreateFormOpen ? (
-						<section className="rounded-lg border bg-muted/20 p-4">
-							<div className="flex flex-wrap items-end gap-3">
-								<div className="min-w-[220px] flex-1 space-y-1.5">
-									<Label htmlFor="api-key-label" className="text-xs">
-										Key name
-									</Label>
-									<Input
-										id="api-key-label"
-										value={keyName}
-										onChange={(event) => setKeyName(event.target.value)}
-										placeholder="cli-writes-prod"
-										className="h-8 rounded-md text-sm"
-									/>
+						<Card size="sm">
+							<CardHeader className="border-b">
+								<CardTitle className="text-base">Create API key</CardTitle>
+								<CardDescription>
+									Provide an optional label so the key is easier to identify
+									later.
+								</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<div className="flex flex-wrap items-end gap-3">
+									<div className="min-w-[220px] flex-1">
+										<div className="flex flex-col gap-1.5">
+											<Label htmlFor="api-key-label" className="text-xs">
+												Key name
+											</Label>
+											<Input
+												id="api-key-label"
+												value={keyName}
+												onChange={(event) => setKeyName(event.target.value)}
+												placeholder="cli-writes-prod"
+												className="h-8 rounded-md text-sm"
+											/>
+										</div>
+									</div>
+									<Button
+										size="sm"
+										onClick={() => void handleCreateKey()}
+										disabled={isCreating}
+									>
+										{isCreating ? (
+											<LoaderCircle className="size-3.5 animate-spin" />
+										) : (
+											<KeyRound data-icon="inline-start" />
+										)}
+										Create API key
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => {
+											setIsCreateFormOpen(false);
+											setKeyName("");
+										}}
+										disabled={isCreating}
+									>
+										Cancel
+									</Button>
 								</div>
-								<Button
-									size="sm"
-									onClick={() => void handleCreateKey()}
-									disabled={isCreating}
-								>
-									{isCreating ? (
-										<LoaderCircle className="size-3.5 animate-spin" />
-									) : (
-										<KeyRound className="size-3.5" />
-									)}
-									Create API key
-								</Button>
-								<Button
-									variant="ghost"
-									size="sm"
-									onClick={() => {
-										setIsCreateFormOpen(false);
-										setKeyName("");
-									}}
-									disabled={isCreating}
-								>
-									Cancel
-								</Button>
-							</div>
-						</section>
+							</CardContent>
+						</Card>
 					) : null}
 
-					<section className="space-y-3">
+					<section className="flex flex-col gap-3">
 						<div className="flex flex-wrap items-center justify-between gap-3">
-							<div className="space-y-1">
+							<div className="flex flex-col gap-1">
 								<h2 className="text-sm font-medium text-foreground">
 									Existing keys
 								</h2>
@@ -341,9 +356,13 @@ function DashboardPage() {
 						) : null}
 
 						{!isLoadingKeys && apiKeys.length === 0 ? (
-							<div className="rounded-md border border-dashed bg-muted/20 px-4 py-6 text-sm text-muted-foreground">
-								No API keys yet.
-							</div>
+							<Card size="sm" className="border-dashed">
+								<CardContent>
+									<p className="text-sm text-muted-foreground">
+										No API keys yet.
+									</p>
+								</CardContent>
+							</Card>
 						) : null}
 
 						{apiKeys.length > 0 ? (
@@ -391,7 +410,7 @@ function DashboardPage() {
 																	{isBusy ? (
 																		<LoaderCircle className="size-3 animate-spin" />
 																	) : (
-																		<XCircle className="size-3" />
+																		<XCircle data-icon="inline-start" />
 																	)}
 																	Revoke
 																</Button>
@@ -403,7 +422,7 @@ function DashboardPage() {
 																	}
 																	disabled={isBusy}
 																>
-																	<Trash2 className="size-3" />
+																	<Trash2 data-icon="inline-start" />
 																	Delete
 																</Button>
 															</div>
@@ -415,51 +434,52 @@ function DashboardPage() {
 									</Table>
 								</div>
 
-								<div className="space-y-4 md:hidden">
-									{apiKeys.map((apiKey, index) => {
+								<div className="flex flex-col gap-4 md:hidden">
+									{apiKeys.map((apiKey) => {
 										const isBusy = activeKeyId === apiKey.id;
 										return (
-											<div key={apiKey.id} className="space-y-3">
-												<div className="space-y-1">
-													<div className="flex flex-wrap items-center gap-2">
-														<p className="text-sm font-medium text-foreground">
-															{apiKey.name ?? "Unnamed key"}
-														</p>
-														<StatusBadge enabled={apiKey.enabled} />
+											<Card key={apiKey.id} size="sm">
+												<CardContent className="flex flex-col gap-3">
+													<div className="flex flex-col gap-1">
+														<div className="flex flex-wrap items-center gap-2">
+															<p className="text-sm font-medium text-foreground">
+																{apiKey.name ?? "Unnamed key"}
+															</p>
+															<StatusBadge enabled={apiKey.enabled} />
+														</div>
+														<div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+															<p>Created {formatDateTime(apiKey.createdAt)}</p>
+															<p>
+																Last used {formatDateTime(apiKey.lastRequest)}
+															</p>
+														</div>
 													</div>
-													<div className="space-y-0.5 text-xs text-muted-foreground">
-														<p>Created {formatDateTime(apiKey.createdAt)}</p>
-														<p>
-															Last used {formatDateTime(apiKey.lastRequest)}
-														</p>
+													<div className="flex flex-wrap gap-2">
+														<Button
+															variant="outline"
+															size="xs"
+															onClick={() => void handleRevokeKey(apiKey.id)}
+															disabled={isBusy || !apiKey.enabled}
+														>
+															{isBusy ? (
+																<LoaderCircle className="size-3 animate-spin" />
+															) : (
+																<XCircle data-icon="inline-start" />
+															)}
+															Revoke
+														</Button>
+														<Button
+															variant="destructive"
+															size="xs"
+															onClick={() => void handleDeleteKey(apiKey.id)}
+															disabled={isBusy}
+														>
+															<Trash2 data-icon="inline-start" />
+															Delete
+														</Button>
 													</div>
-												</div>
-												<div className="flex flex-wrap gap-2">
-													<Button
-														variant="outline"
-														size="xs"
-														onClick={() => void handleRevokeKey(apiKey.id)}
-														disabled={isBusy || !apiKey.enabled}
-													>
-														{isBusy ? (
-															<LoaderCircle className="size-3 animate-spin" />
-														) : (
-															<XCircle className="size-3" />
-														)}
-														Revoke
-													</Button>
-													<Button
-														variant="destructive"
-														size="xs"
-														onClick={() => void handleDeleteKey(apiKey.id)}
-														disabled={isBusy}
-													>
-														<Trash2 className="size-3" />
-														Delete
-													</Button>
-												</div>
-												{index < apiKeys.length - 1 ? <Separator /> : null}
-											</div>
+												</CardContent>
+											</Card>
 										);
 									})}
 								</div>

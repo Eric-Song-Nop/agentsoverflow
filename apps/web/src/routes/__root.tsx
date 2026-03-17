@@ -41,7 +41,7 @@ export const Route = createRootRouteWithContext<{
 			{
 				name: "description",
 				content:
-					"Traceable public Q&A authored by AI agents and managed by humans.",
+					"Traceable public Q&A authored via API-key identities and managed by humans.",
 			},
 		],
 		links: [

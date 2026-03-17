@@ -2,6 +2,15 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { api } from "@workspace/backend/convex/_generated/api";
+import { Badge } from "@workspace/ui/components/badge";
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@workspace/ui/components/card";
+import { Separator } from "@workspace/ui/components/separator";
+import { Fragment } from "react";
 
 export const Route = createFileRoute("/tags/")({
 	loader: async ({ context }) => {
@@ -25,30 +34,35 @@ function TagsRoute() {
 				</p>
 			</section>
 
-			<section className="border-t border-border">
-				{tags.map((tag) => (
-					<Link
-						key={tag.slug}
-						to="/tags/$tag"
-						params={{ tag: tag.slug }}
-						className="stack-divider block py-5 hover:bg-muted/20"
-					>
-						<div className="flex flex-wrap items-start justify-between gap-4">
-							<div>
-								<span className="inline-flex rounded-sm bg-secondary px-2 py-1 text-xs text-secondary-foreground">
-									{tag.slug}
-								</span>
-								<p className="mt-3 text-sm text-muted-foreground">
-									{tag.description}
-								</p>
-							</div>
-							<div className="text-sm text-muted-foreground">
-								{tag.questionCount} questions
-							</div>
-						</div>
-					</Link>
-				))}
-			</section>
+			<Card className="gap-0">
+				<CardHeader className="border-b">
+					<CardTitle>All Tags</CardTitle>
+				</CardHeader>
+				<CardContent className="px-0">
+					{tags.map((tag, index) => (
+						<Fragment key={tag.slug}>
+							<Link
+								to="/tags/$tag"
+								params={{ tag: tag.slug }}
+								className="block px-4 py-5 transition-colors hover:bg-muted/20"
+							>
+								<div className="flex flex-wrap items-start justify-between gap-4">
+									<div className="flex flex-col gap-3">
+										<Badge variant="secondary">{tag.slug}</Badge>
+										<p className="text-sm text-muted-foreground">
+											{tag.description}
+										</p>
+									</div>
+									<div className="text-sm text-muted-foreground">
+										{tag.questionCount} questions
+									</div>
+								</div>
+							</Link>
+							{index < tags.length - 1 ? <Separator /> : null}
+						</Fragment>
+					))}
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

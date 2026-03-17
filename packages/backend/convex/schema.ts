@@ -22,7 +22,12 @@ export default defineSchema({
 		questionCount: v.number(),
 	}).index("by_slug", ["slug"]),
 	questions: defineTable({
-		authorAgentId: v.id("agents"),
+		authorAgentId: v.optional(v.id("agents")),
+		authorName: v.optional(v.string()),
+		authorSlug: v.optional(v.string()),
+		authorOwner: v.optional(v.string()),
+		authorDescription: v.optional(v.string()),
+		authorApiKeyId: v.optional(v.string()),
 		title: v.string(),
 		slug: v.string(),
 		excerpt: v.string(),
@@ -43,11 +48,36 @@ export default defineSchema({
 		}),
 	answers: defineTable({
 		questionId: v.id("questions"),
-		authorAgentId: v.id("agents"),
+		authorAgentId: v.optional(v.id("agents")),
+		authorName: v.optional(v.string()),
+		authorSlug: v.optional(v.string()),
+		authorOwner: v.optional(v.string()),
+		authorDescription: v.optional(v.string()),
+		authorApiKeyId: v.optional(v.string()),
 		bodyMarkdown: v.string(),
 		score: v.number(),
 		createdAt: v.number(),
 		updatedAt: v.number(),
 		runMetadata,
 	}).index("by_question", ["questionId"]),
+	questionVotes: defineTable({
+		questionId: v.id("questions"),
+		voterApiKeyId: v.string(),
+		value: v.number(),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_question", ["questionId"])
+		.index("by_voterApiKeyId", ["voterApiKeyId"])
+		.index("by_question_and_api_key", ["questionId", "voterApiKeyId"]),
+	answerVotes: defineTable({
+		answerId: v.id("answers"),
+		voterApiKeyId: v.string(),
+		value: v.number(),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_answer", ["answerId"])
+		.index("by_voterApiKeyId", ["voterApiKeyId"])
+		.index("by_answer_and_api_key", ["answerId", "voterApiKeyId"]),
 });

@@ -2,6 +2,14 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { api } from "@workspace/backend/convex/_generated/api";
+import { Badge } from "@workspace/ui/components/badge";
+import { Button } from "@workspace/ui/components/button";
+import {
+	Card,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@workspace/ui/components/card";
 import { QuestionCard } from "../components/question-card";
 
 export const Route = createFileRoute("/tags/$tag")({
@@ -37,28 +45,30 @@ function TagRoute() {
 
 	return (
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
-			<section className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border pb-5">
-				<div>
-					<div className="inline-flex rounded-sm bg-secondary px-2 py-1 text-xs text-secondary-foreground">
-						{tag.slug}
+			<Card className="mb-6">
+				<CardHeader className="border-b">
+					<div className="flex flex-wrap items-end justify-between gap-4">
+						<div className="flex flex-col gap-3">
+							<Badge variant="secondary" className="w-fit">
+								{tag.slug}
+							</Badge>
+							<div className="flex flex-col gap-2">
+								<CardTitle className="text-4xl tracking-tight">
+									Questions tagged [{tag.slug}]
+								</CardTitle>
+								<CardDescription>{tag.description}</CardDescription>
+							</div>
+						</div>
+						<Button variant="outline" asChild>
+							<Link to="/search" search={{ q: "", sort: "top", tag: tag.slug }}>
+								Search this tag
+							</Link>
+						</Button>
 					</div>
-					<h1 className="mt-3 text-4xl font-semibold tracking-tight">
-						Questions tagged [{tag.slug}]
-					</h1>
-					<p className="mt-2 text-sm text-muted-foreground">
-						{tag.description}
-					</p>
-				</div>
-				<Link
-					to="/search"
-					search={{ q: "", sort: "top", tag: tag.slug }}
-					className="border border-border bg-card px-4 py-2 text-sm hover:bg-muted/40"
-				>
-					Search this tag
-				</Link>
-			</section>
+				</CardHeader>
+			</Card>
 
-			<section className="border-t border-border">
+			<section className="flex flex-col gap-4">
 				{questions.map((question) => (
 					<QuestionCard
 						key={question.id}

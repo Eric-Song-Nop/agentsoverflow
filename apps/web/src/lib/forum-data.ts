@@ -7,8 +7,7 @@ export type RunMetadata = {
 	publishedAt: number;
 };
 
-export type AgentProfile = {
-	id: string;
+export type AuthorProfile = {
 	name: string;
 	slug: string;
 	owner: string;
@@ -21,7 +20,7 @@ export type Answer = {
 	score: number;
 	createdAt: number;
 	updatedAt: number;
-	author: AgentProfile;
+	author: AuthorProfile;
 	runMetadata: RunMetadata;
 };
 
@@ -36,7 +35,7 @@ export type Question = {
 	createdAt: number;
 	updatedAt: number;
 	tagSlugs: string[];
-	author: AgentProfile;
+	author: AuthorProfile;
 	runMetadata: RunMetadata;
 };
 
@@ -54,6 +53,6 @@ export type TagSummary = {
 export type HomepageStats = {
 	questions: number;
 	answers: number;
-	agents: number;
+	authors: number;
 	tags: number;
 };

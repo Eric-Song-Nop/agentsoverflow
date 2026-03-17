@@ -2,11 +2,14 @@ import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { api } from "@workspace/backend/convex/_generated/api";
+import { Badge } from "@workspace/ui/components/badge";
 import {
-	SegmentedControl,
-	SegmentedControlLink,
-	SidebarModule,
-} from "../components/public-primitives";
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@workspace/ui/components/card";
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
 import { CompactQuestionCard, QuestionCard } from "../components/question-card";
 import type { FeedSort } from "../lib/forum-data";
 import { parseFeedSearch } from "../lib/search-params";
@@ -64,64 +67,71 @@ function HomePage() {
 		<div className="mx-auto max-w-7xl px-5 py-6 lg:px-8">
 			<section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
 				<div className="min-w-0">
-					<div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+					<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
 						<div className="text-sm text-muted-foreground">
 							{feedQuestions.length} questions
 						</div>
-						<SegmentedControl>
-							{sortTabs.map((tab) => (
-								<SegmentedControlLink
-									key={tab.value}
-									to="/"
-									search={{ sort: tab.value }}
-									active={sort === tab.value}
-								>
-									{tab.label}
-								</SegmentedControlLink>
-							))}
-						</SegmentedControl>
+						<Tabs value={sort}>
+							<TabsList>
+								{sortTabs.map((tab) => (
+									<TabsTrigger key={tab.value} value={tab.value} asChild>
+										<Link to="/" search={{ sort: tab.value }}>
+											{tab.label}
+										</Link>
+									</TabsTrigger>
+								))}
+							</TabsList>
+						</Tabs>
 					</div>
 
-					<div className="border-t border-border">
+					<div className="flex flex-col gap-4">
 						{feedQuestions.map((question) => (
 							<QuestionCard key={question.id} question={question} />
 						))}
 					</div>
 				</div>
 
-				<aside className="space-y-5">
-					<SidebarModule title="Archive Stats" bodyClassName="p-0">
-						<div className="grid grid-cols-2 gap-px bg-border">
+				<aside className="flex flex-col gap-5">
+					<Card className="gap-0">
+						<CardHeader className="border-b">
+							<CardTitle>Archive Stats</CardTitle>
+						</CardHeader>
+						<CardContent className="grid grid-cols-2 gap-px bg-border px-0">
 							<MetricCell label="Questions" value={stats.questions} />
 							<MetricCell label="Answers" value={stats.answers} />
-							<MetricCell label="Agents" value={stats.agents} />
+							<MetricCell label="Authors" value={stats.authors} />
 							<MetricCell label="Tags" value={stats.tags} />
-						</div>
-					</SidebarModule>
+						</CardContent>
+					</Card>
 
-					<SidebarModule title="Popular Tags">
-						<div className="flex flex-wrap gap-2">
+					<Card>
+						<CardHeader className="border-b">
+							<CardTitle>Popular Tags</CardTitle>
+						</CardHeader>
+						<CardContent className="flex flex-wrap gap-2">
 							{tags.map((tag) => (
-								<Link
-									key={tag.slug}
-									to="/tags/$tag"
-									params={{ tag: tag.slug }}
-									className="inline-flex items-center gap-2 rounded-sm bg-secondary px-2 py-1 text-xs text-secondary-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-								>
-									{tag.slug}
-									<span className="text-muted-foreground">
-										{tag.questionCount}
-									</span>
-								</Link>
+								<Badge key={tag.slug} asChild variant="secondary">
+									<Link to="/tags/$tag" params={{ tag: tag.slug }}>
+										{tag.slug}
+										<span className="text-muted-foreground">
+											{tag.questionCount}
+										</span>
+									</Link>
+								</Badge>
 							))}
-						</div>
-					</SidebarModule>
+						</CardContent>
+					</Card>
 
-					<SidebarModule title="Featured Threads" bodyClassName="py-1">
-						{featuredQuestions.map((question) => (
-							<CompactQuestionCard key={question.id} question={question} />
-						))}
-					</SidebarModule>
+					<Card>
+						<CardHeader className="border-b">
+							<CardTitle>Featured Threads</CardTitle>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-3">
+							{featuredQuestions.map((question) => (
+								<CompactQuestionCard key={question.id} question={question} />
+							))}
+						</CardContent>
+					</Card>
 				</aside>
 			</section>
 		</div>
