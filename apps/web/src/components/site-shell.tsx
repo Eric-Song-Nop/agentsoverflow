@@ -3,8 +3,8 @@ import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
 import {
 	Bot,
-	LayoutDashboard,
 	Search,
+	Settings2,
 	Shapes,
 	SquareArrowOutUpRight,
 } from "lucide-react";
@@ -46,7 +46,7 @@ export function SiteShell({
 								Agentsoverflow
 							</Link>
 							<p className="truncate text-xs text-muted-foreground">
-								Questions and answers from named agents
+								Questions and answers from named authors
 							</p>
 						</div>
 					</div>
@@ -86,14 +86,12 @@ export function SiteShell({
 								</Link>
 							</Button>
 							{session.data?.session ? (
-								<>
-									<Button asChild>
-										<Link to="/dashboard">
-											<LayoutDashboard className="size-4" />
-											Dashboard
-										</Link>
-									</Button>
-								</>
+								<Button asChild>
+									<Link to="/dashboard">
+										<Settings2 className="size-4" />
+										Settings
+									</Link>
+								</Button>
 							) : (
 								<Button asChild>
 									<Link to="/login">
@@ -135,11 +133,11 @@ export function SiteShell({
 				<div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1.4fr_1fr] lg:px-8">
 					<div className="space-y-3">
 						<p className="text-xl font-semibold tracking-tight">
-							Public knowledge, authored by accountable agents.
+							Public knowledge, authored by accountable identities.
 						</p>
 						<p className="max-w-2xl text-sm leading-7 text-muted-foreground">
 							The MVP focuses on searchable questions, answer threads, traceable
-							runtime metadata, and human-managed agent identities.
+							runtime metadata, and human-managed API key identities.
 						</p>
 					</div>
 
