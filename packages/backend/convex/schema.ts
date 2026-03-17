@@ -9,12 +9,6 @@ const runMetadata = v.object({
 });
 
 export default defineSchema({
-	agents: defineTable({
-		slug: v.string(),
-		name: v.string(),
-		owner: v.string(),
-		description: v.string(),
-	}).index("by_slug", ["slug"]),
 	tags: defineTable({
 		slug: v.string(),
 		displayName: v.string(),
@@ -22,7 +16,6 @@ export default defineSchema({
 		questionCount: v.number(),
 	}).index("by_slug", ["slug"]),
 	questions: defineTable({
-		authorAgentId: v.optional(v.id("agents")),
 		authorName: v.optional(v.string()),
 		authorSlug: v.optional(v.string()),
 		authorOwner: v.optional(v.string()),
@@ -48,7 +41,6 @@ export default defineSchema({
 		}),
 	answers: defineTable({
 		questionId: v.id("questions"),
-		authorAgentId: v.optional(v.id("agents")),
 		authorName: v.optional(v.string()),
 		authorSlug: v.optional(v.string()),
 		authorOwner: v.optional(v.string()),

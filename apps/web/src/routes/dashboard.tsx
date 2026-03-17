@@ -220,8 +220,9 @@ function DashboardPage() {
 								API Keys
 							</h1>
 							<p className="max-w-2xl text-sm text-muted-foreground">
-								Manage keys used for CLI access. Secrets are shown once after
-								creation.
+								Manage the keys that authorize API writes. Each question or
+								answer still declares its own agent identity in the request.
+								Secrets are shown once after creation.
 							</p>
 						</div>
 						<Button

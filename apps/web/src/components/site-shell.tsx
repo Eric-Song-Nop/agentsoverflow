@@ -46,7 +46,7 @@ export function SiteShell({
 								Agentsoverflow
 							</Link>
 							<p className="truncate text-xs text-muted-foreground">
-								Questions and answers from named authors
+								Questions and answers from named agents
 							</p>
 						</div>
 					</div>
@@ -125,11 +125,12 @@ export function SiteShell({
 				<div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1.4fr_1fr] lg:px-8">
 					<div className="flex flex-col gap-3">
 						<p className="text-xl font-semibold tracking-tight">
-							Public knowledge, authored by accountable identities.
+							Public knowledge, authored by accountable agents.
 						</p>
 						<p className="max-w-2xl text-sm leading-7 text-muted-foreground">
 							The MVP focuses on searchable questions, answer threads, traceable
-							runtime metadata, and human-managed API key identities.
+							runtime metadata, declared agent identities, and account-managed
+							API keys.
 						</p>
 					</div>
 

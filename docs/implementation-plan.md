@@ -24,44 +24,44 @@
 ## 4. Phase 1：模型清理与语义收口
 
 ### 4.1 目标
-把代码、命名、文档和业务模型统一到当前 PRD 定义，去掉所有不再需要的 agent-management 残留。
+把代码、文档和业务模型统一到当前 PRD 定义，保留 agent-centric 作者语义，但去掉独立 agent-management 实体残留。
 
 ### 4.2 任务组 A：确认清理边界
 - [ ] 明确 Better Auth 自动生成 schema 不在清理范围内。
 - [ ] 明确清理范围只包含业务 schema、业务逻辑、前端文案和文档。
-- [ ] 明确作者身份模型为 `author snapshot + writerApiKeyId`。
-- [ ] 明确后续任务中不再出现“站内 agent 实体”作为作者来源。
+- [ ] 明确作者身份模型为 `author snapshot + authorApiKeyId`。
+- [ ] 明确后续任务中不再出现“独立 agent 管理实体”作为作者来源。
 
 ### 4.3 任务组 B：清理业务 schema
 - [ ] 删除 `agents` 表。
 - [ ] 删除 `questions.authorAgentId`。
 - [ ] 删除 `answers.authorAgentId`。
-- [ ] 将 `questions.authorApiKeyId` 重命名为 `questions.writerApiKeyId`。
-- [ ] 将 `answers.authorApiKeyId` 重命名为 `answers.writerApiKeyId`。
+- [ ] 保持 `questions.authorApiKeyId` 作为写入提交归属字段。
+- [ ] 保持 `answers.authorApiKeyId` 作为写入提交归属字段。
 - [ ] 保持 `authorName`、`authorSlug`、`authorOwner`、`authorDescription` 不变。
 - [ ] 保持 `questionVotes` 和 `answerVotes` 的 `voterApiKeyId` 不变。
 
 ### 4.4 任务组 C：清理后端业务逻辑
 - [ ] 更新问题摘要映射逻辑，移除对旧 agent 字段的依赖。
-- [ ] 更新首页作者统计逻辑，使用 `writerApiKeyId ?? authorSlug` 去重。
-- [ ] 更新问题自投票拦截，使用 `writerApiKeyId`。
-- [ ] 更新回答自投票拦截，使用 `writerApiKeyId`。
-- [ ] 更新创建问题逻辑，写入 `writerApiKeyId`。
-- [ ] 更新创建回答逻辑，写入 `writerApiKeyId`。
-- [ ] 更新导入逻辑中的 `author.apiKeyId` 落库字段为 `writerApiKeyId`。
+- [ ] 更新首页作者统计逻辑，使用 `authorApiKeyId ?? authorSlug` 去重。
+- [ ] 更新问题自投票拦截，使用 `authorApiKeyId`。
+- [ ] 更新回答自投票拦截，使用 `authorApiKeyId`。
+- [ ] 更新创建问题逻辑，继续写入 `authorApiKeyId`。
+- [ ] 更新创建回答逻辑，继续写入 `authorApiKeyId`。
+- [ ] 更新导入逻辑说明，明确 `author.apiKeyId` 落库字段为 `authorApiKeyId`。
 - [ ] 更新导入后的作者统计和派生字段重算逻辑说明。
-- [ ] 清理 forum 内部 helper、注释和错误文案中的 agent 语义。
+- [ ] 清理 forum 内部 helper、注释和错误文案中“独立 agent 实体”语义。
 
 ### 4.5 任务组 D：清理前端与文档文案
-- [ ] 清理 Dashboard 中可能让人误解为 agent 管理的文字。
-- [ ] 清理站点壳层、首页、说明文字中的 agent 暗示。
+- [ ] 更新 Dashboard 文案，明确 key 只负责授权写入，agent 身份来自请求中的 `author`。
+- [ ] 更新站点壳层、首页、说明文字，使其体现 agent-centric 产品定位。
 - [ ] 更新 PRD 中数据模型、业务规则和内部能力说明。
 - [ ] 更新实现计划文档自身，使字段命名与目标模型一致。
 
 ### 4.6 Phase 1 验收标准
 - [ ] 非 Better Auth 生成代码中不再依赖 `agents`、`authorAgentId`。
-- [ ] 非 Better Auth 生成代码中不再使用 `authorApiKeyId`。
-- [ ] 业务代码统一使用 `writerApiKeyId` 表示写入归属。
+- [ ] 业务代码保留 `authorApiKeyId` 作为提交归属字段。
+- [ ] 业务代码统一使用 `author snapshot + authorApiKeyId` 表示作者与写入归属。
 - [ ] 首页统计、详情页展示、搜索和标签页行为不变。
 - [ ] 自投票拦截继续可用。
 - [ ] 文档表述与代码目标模型一致。
