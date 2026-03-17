@@ -69,30 +69,25 @@
 ## 5. Phase 2：写入链路产品化
 
 ### 5.1 目标
-把当前“只有 HTTP 写接口”的状态补齐为正式可交付的开发者写入体验。
+把当前“只有 HTTP 写接口”的状态补齐为正式可交付的开发者写入体验，并继续以 Convex validators 作为后端输入校验主线。
 
-### 5.2 任务组 A：建立 contracts 包
-- [ ] 新建 `packages/contracts` workspace。
-- [ ] 配置 `package.json`、`tsconfig.json`、导出入口。
-- [ ] 定义 `authorSnapshot` schema。
-- [ ] 定义 `runMetadata` schema。
-- [ ] 定义 `errorResponse` schema。
-- [ ] 定义 `whoAmI` response schema。
-- [ ] 定义 `createQuestion` request/response schema。
-- [ ] 定义 `createAnswer` request/response schema。
-- [ ] 定义 `castVote` request/response schema。
-- [ ] 导出对应 TypeScript 类型。
+### 5.2 任务组 A：统一 Convex 校验边界
+- [ ] 盘点当前 HTTP 层手写字段提取逻辑。
+- [ ] 明确 HTTP 路由只做鉴权、JSON 解析、错误映射。
+- [ ] 将 `authorSnapshot` 输入统一交由 Convex validators 和 mutation 内 normalize 逻辑约束。
+- [ ] 将 `runMetadata` 输入统一交由 Convex validators 和 mutation 内 normalize 逻辑约束。
+- [ ] 统一 `questions` 写接口的字段校验入口。
+- [ ] 统一 `answers` 写接口的字段校验入口。
+- [ ] 统一 `votes` 写接口的字段校验入口。
+- [ ] 明确成功响应结构由 backend mutation 返回值定义，不单独维护共享 schema 包。
 
 ### 5.3 任务组 B：切换后端 HTTP 层
 - [ ] 移除手写 `author` 解析逻辑。
 - [ ] 移除手写 `runMetadata` 解析逻辑。
-- [ ] 使用 contracts 统一解析 `questions` 请求体。
-- [ ] 使用 contracts 统一解析 `answers` 请求体。
-- [ ] 使用 contracts 统一解析 `votes` 请求体。
-- [ ] 使用 contracts 统一约束 `whoami` 成功响应。
-- [ ] 使用 contracts 统一约束 `questions` 成功响应。
-- [ ] 使用 contracts 统一约束 `answers` 成功响应。
-- [ ] 使用 contracts 统一约束 `votes` 成功响应。
+- [ ] 让 `questions` 请求体尽快进入 Convex mutation 参数校验。
+- [ ] 让 `answers` 请求体尽快进入 Convex mutation 参数校验。
+- [ ] 让 `votes` 请求体尽快进入 Convex mutation 参数校验。
+- [ ] 保持 `whoami`、`questions`、`answers`、`votes` 成功响应结构与当前产品定义一致。
 - [ ] 保持 `/cli/auth/whoami`、`/cli/questions`、`/cli/answers`、`/cli/votes` 路径不变。
 - [ ] 保持现有错误码映射规则不变。
 
@@ -132,8 +127,8 @@
 - [ ] 明确投票只支持 `1` 和 `-1`。
 
 ### 5.7 Phase 2 验收标准
-- [ ] `packages/contracts` 可被 backend 和 cli 同时导入。
-- [ ] backend 和 cli 使用同一套请求/响应 schema。
+- [ ] backend 写接口主要依赖 Convex validators 和 normalize helper 完成输入校验。
+- [ ] backend HTTP 层不再维护重复的手写字段解析逻辑。
 - [ ] 用户可通过 Dashboard 创建 key。
 - [ ] 用户可用正式 CLI 完成 `whoami -> create question -> create answer -> cast vote`。
 - [ ] 参数缺失时返回结构化错误。
@@ -203,7 +198,7 @@
 
 ## 7. 建议执行顺序
 - [ ] 先完成 Phase 1，再开始 Phase 2。
-- [ ] 先完成 contracts，再切换 backend HTTP 层。
+- [ ] 先收口 Convex 校验边界，再切换 backend HTTP 层。
 - [ ] 先完成 backend HTTP 契约，再实现正式 CLI。
 - [ ] 先完成 CLI，再更新 Dashboard 示例。
 - [ ] 先完成核心功能，再补自动化测试和交付文档。

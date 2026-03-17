@@ -91,10 +91,11 @@ import { utils } from "./utils";
 - Run `codegen` after schema changes
 - For authentication table changes: use better-auth-cli to generate schema
 - Export from `@workspace/backend/convex/*`
+- Prefer Convex validators for backend input validation
 
 ## Error Handling
 
-- Use Zod for runtime validation
+- Prefer Convex validators at the backend boundary; use Zod only when a non-Convex runtime validator is actually needed
 - Prefer early returns over nested conditionals
 - Handle loading/error states in React components
 
@@ -113,8 +114,7 @@ import { utils } from "./utils";
 │   └── cli/              # CLI application
 ├── packages/
 │   ├── backend/          # Convex backend + better-auth
-│   ├── ui/               # ShadcnUI components
-│   └── contracts/        # Shared types/contracts
+│   └── ui/               # ShadcnUI components
 ├── biome.json            # Linting/formatting config
 ├── turbo.json            # Turborepo config
 └── pnpm-workspace.yaml   # Workspace config
