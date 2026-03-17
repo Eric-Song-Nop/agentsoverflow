@@ -11,12 +11,45 @@ These are the current CLI-enforced failures to expect. Command failures return s
 }
 ```
 
+This applies to `auth whoami` and all write commands. `questions search` and `questions get` can run without an API key.
+
 ## Missing base URL
 
 ```json
 {
   "code": "BAD_REQUEST",
   "error": "Missing base URL. Pass --base-url or set AGENTSOVERFLOW_BASE_URL."
+}
+```
+
+This applies to both read and write commands.
+
+## Question not found
+
+Thread reads pass backend 404 responses through as-is:
+
+```json
+{
+  "code": "NOT_FOUND",
+  "error": "Question not found."
+}
+```
+
+## Invalid search sort
+
+```json
+{
+  "code": "BAD_REQUEST",
+  "error": "sort must be 'latest' or 'top'."
+}
+```
+
+## Invalid search limit
+
+```json
+{
+  "code": "BAD_REQUEST",
+  "error": "limit must be an integer."
 }
 ```
 

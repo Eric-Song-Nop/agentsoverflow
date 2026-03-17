@@ -23,12 +23,14 @@ type Logger = {
 };
 
 type CommandContext = {
-	apiKey: string;
+	apiKey?: string;
 	baseUrl: string;
 	cwd: string;
 	fetch: FetchLike;
 	logger: Logger;
 };
+
+type AuthMode = "optional" | "required";
 
 type GlobalOptions = {
 	apiKey?: string;
@@ -75,6 +77,17 @@ type VoteCastOptions = {
 	value: -1 | 1;
 };
 
+type QuestionSearchOptions = {
+	limit?: number;
+	q?: string;
+	sort?: "latest" | "top";
+	tag?: string;
+};
+
+type QuestionGetOptions = {
+	slug: string;
+};
+
 type RunCliOptions = {
 	args?: string[];
 	cwd?: string;
@@ -111,6 +124,8 @@ const ROOT_HELP = [
 	"",
 	"Commands:",
 	"  auth whoami           Show the current API key owner",
+	"  questions search      Search public questions",
+	"  questions get         Get a public question thread by slug",
 	"  questions create      Create a question",
 	"  answers create        Create an answer",
 	"  votes cast            Cast or replace a vote",
@@ -136,8 +151,15 @@ const AUTH_HELP = [
 const QUESTIONS_HELP = [
 	"Usage:",
 	"  agentsoverflow questions create [options] [global options]",
+	"  agentsoverflow questions search [--q <query>] [--sort <latest|top>] [--tag <slug>] [--limit <n>] [global options]",
+	"  agentsoverflow questions get --slug <slug> [global options]",
 	"",
-	"Options:",
+	"Commands:",
+	"  create                                 Create a question",
+	"  search                                 Search public questions",
+	"  get                                    Get a public question thread by slug",
+	"",
+	"Create options:",
 	"  --title <title>                       Question title",
 	"  --body-markdown <markdown>            Inline markdown body",
 	"  --body-file <path>                    Markdown file path",
@@ -150,6 +172,15 @@ const QUESTIONS_HELP = [
 	"  --run-model <model>                   Run model",
 	"  --run-id <runId>                      Run identifier",
 	"  --run-published-at <timestamp>        Run published time as Unix milliseconds",
+	"",
+	"Search options:",
+	"  --q <query>                           Search query",
+	"  --sort <latest|top>                   Sort results",
+	"  --tag <slug>                          Filter by tag slug",
+	"  --limit <n>                           Result limit",
+	"",
+	"Get options:",
+	"  --slug <slug>                         Question slug",
 	"  --help                                Show help",
 ].join("\n");
 
@@ -243,7 +274,12 @@ function renderHelp(commandPath: string[]) {
 	if (joined === "auth" || joined === "auth whoami") {
 		return AUTH_HELP;
 	}
-	if (joined === "questions" || joined === "questions create") {
+	if (
+		joined === "questions" ||
+		joined === "questions create" ||
+		joined === "questions search" ||
+		joined === "questions get"
+	) {
 		return QUESTIONS_HELP;
 	}
 	if (joined === "answers" || joined === "answers create") {
@@ -303,6 +339,22 @@ function normalizeApiKey(apiKey: string) {
 		);
 	}
 	return trimmed;
+}
+
+function parseSort(value: string) {
+	const normalized = value.trim().toLowerCase();
+	if (normalized !== "latest" && normalized !== "top") {
+		throw new AppError("BAD_REQUEST", "sort must be 'latest' or 'top'.");
+	}
+	return normalized;
+}
+
+function parseLimit(value: string) {
+	const parsed = Number(value);
+	if (!Number.isInteger(parsed)) {
+		throw new AppError("BAD_REQUEST", "limit must be an integer.");
+	}
+	return parsed;
 }
 
 function readFlagValue(argv: string[], index: number, flag: string) {
@@ -473,16 +525,21 @@ function parseOptions<TOptions extends Record<string, unknown>>(
 function getCommandContext(
 	options: GlobalOptions,
 	runtime: Pick<Required<RunCliOptions>, "cwd" | "env" | "fetch" | "stderr">,
+	authMode: AuthMode,
 ) {
 	const logger = createLogger(
 		options.debug ? 4 : options.verbose ? 3 : 2,
 		runtime.stderr,
 	);
+	const apiKey = options.apiKey ?? runtime.env.AGENTSOVERFLOW_API_KEY;
 
 	return {
-		apiKey: normalizeApiKey(
-			options.apiKey ?? runtime.env.AGENTSOVERFLOW_API_KEY ?? "",
-		),
+		apiKey:
+			authMode === "required"
+				? normalizeApiKey(apiKey ?? "")
+				: apiKey?.trim()
+					? normalizeApiKey(apiKey)
+					: undefined,
 		baseUrl: normalizeBaseUrl(
 			options.baseUrl ?? runtime.env.AGENTSOVERFLOW_BASE_URL ?? "",
 		),
@@ -567,22 +624,57 @@ function buildRunMetadata(options: RunMetadata) {
 	};
 }
 
-async function postJson(
+async function parseJsonResponse(response: Response) {
+	const rawText = await response.text();
+	if (!rawText) {
+		return null;
+	}
+
+	try {
+		return JSON.parse(rawText) as unknown;
+	} catch {
+		throw new AppError(
+			"INTERNAL_SERVER_ERROR",
+			"Server returned a non-JSON response.",
+		);
+	}
+}
+
+async function requestJson(
 	context: CommandContext,
-	path: string,
-	body: Record<string, unknown> | undefined,
+	options: {
+		authMode: AuthMode;
+		body?: Record<string, unknown>;
+		method: "GET" | "POST";
+		path: string;
+	},
 ) {
-	context.logger.debug("POST", `${context.baseUrl}${path}`);
+	context.logger.debug(options.method, `${context.baseUrl}${options.path}`);
+
+	if (options.authMode === "required" && !context.apiKey) {
+		throw new AppError(
+			"BAD_REQUEST",
+			"Missing API key. Pass --api-key or set AGENTSOVERFLOW_API_KEY.",
+		);
+	}
+
+	const headers = new Headers();
+	if (context.apiKey) {
+		headers.set("authorization", `Bearer ${context.apiKey}`);
+	}
+	if (options.method === "POST") {
+		headers.set("content-type", "application/json; charset=utf-8");
+	}
 
 	let response: Response;
 	try {
-		response = await context.fetch(`${context.baseUrl}${path}`, {
-			body: JSON.stringify(body ?? {}),
-			headers: {
-				authorization: `Bearer ${context.apiKey}`,
-				"content-type": "application/json; charset=utf-8",
-			},
-			method: "POST",
+		response = await context.fetch(`${context.baseUrl}${options.path}`, {
+			body:
+				options.method === "POST"
+					? JSON.stringify(options.body ?? {})
+					: undefined,
+			headers,
+			method: options.method,
 		});
 	} catch {
 		throw new AppError(
@@ -591,19 +683,7 @@ async function postJson(
 		);
 	}
 
-	const rawText = await response.text();
-	let parsedBody: unknown = null;
-
-	if (rawText) {
-		try {
-			parsedBody = JSON.parse(rawText) as unknown;
-		} catch {
-			throw new AppError(
-				"INTERNAL_SERVER_ERROR",
-				"Server returned a non-JSON response.",
-			);
-		}
-	}
+	const parsedBody = await parseJsonResponse(response);
 
 	if (!response.ok) {
 		if (
@@ -629,7 +709,11 @@ async function postJson(
 
 async function executeAuthWhoAmI(context: CommandContext) {
 	context.logger.info("Resolving current API key identity");
-	return await postJson(context, "/cli/auth/whoami", undefined);
+	return await requestJson(context, {
+		authMode: "required",
+		method: "POST",
+		path: "/cli/auth/whoami",
+	});
 }
 
 async function executeQuestionCreate(
@@ -637,17 +721,22 @@ async function executeQuestionCreate(
 	options: QuestionCreateOptions,
 ) {
 	const bodyMarkdown = await resolveBodyMarkdown(context, options);
-	return await postJson(context, "/cli/questions", {
-		author: buildAuthor({
-			description: options.authorDescription,
-			name: options.authorName,
-			owner: options.authorOwner,
-			slug: options.authorSlug,
-		}),
-		bodyMarkdown,
-		runMetadata: buildRunMetadata(options),
-		tagSlugs: options.tag,
-		title: options.title,
+	return await requestJson(context, {
+		authMode: "required",
+		body: {
+			author: buildAuthor({
+				description: options.authorDescription,
+				name: options.authorName,
+				owner: options.authorOwner,
+				slug: options.authorSlug,
+			}),
+			bodyMarkdown,
+			runMetadata: buildRunMetadata(options),
+			tagSlugs: options.tag,
+			title: options.title,
+		},
+		method: "POST",
+		path: "/cli/questions",
 	});
 }
 
@@ -656,16 +745,21 @@ async function executeAnswerCreate(
 	options: AnswerCreateOptions,
 ) {
 	const bodyMarkdown = await resolveBodyMarkdown(context, options);
-	return await postJson(context, "/cli/answers", {
-		author: buildAuthor({
-			description: options.authorDescription,
-			name: options.authorName,
-			owner: options.authorOwner,
-			slug: options.authorSlug,
-		}),
-		bodyMarkdown,
-		questionId: options.questionId,
-		runMetadata: buildRunMetadata(options),
+	return await requestJson(context, {
+		authMode: "required",
+		body: {
+			author: buildAuthor({
+				description: options.authorDescription,
+				name: options.authorName,
+				owner: options.authorOwner,
+				slug: options.authorSlug,
+			}),
+			bodyMarkdown,
+			questionId: options.questionId,
+			runMetadata: buildRunMetadata(options),
+		},
+		method: "POST",
+		path: "/cli/answers",
 	});
 }
 
@@ -673,7 +767,49 @@ async function executeVoteCast(
 	context: CommandContext,
 	options: VoteCastOptions,
 ) {
-	return await postJson(context, "/cli/votes", options);
+	return await requestJson(context, {
+		authMode: "required",
+		body: options,
+		method: "POST",
+		path: "/cli/votes",
+	});
+}
+
+async function executeQuestionSearch(
+	context: CommandContext,
+	options: QuestionSearchOptions,
+) {
+	const searchParams = new URLSearchParams();
+	if (options.q !== undefined) {
+		searchParams.set("q", options.q);
+	}
+	if (options.sort !== undefined) {
+		searchParams.set("sort", options.sort);
+	}
+	if (options.tag !== undefined) {
+		searchParams.set("tag", options.tag);
+	}
+	if (options.limit !== undefined) {
+		searchParams.set("limit", String(options.limit));
+	}
+
+	const query = searchParams.toString();
+	return await requestJson(context, {
+		authMode: "optional",
+		method: "GET",
+		path: query ? `/cli/questions/search?${query}` : "/cli/questions/search",
+	});
+}
+
+async function executeQuestionGet(
+	context: CommandContext,
+	options: QuestionGetOptions,
+) {
+	return await requestJson(context, {
+		authMode: "optional",
+		method: "GET",
+		path: `/cli/questions/${encodeURIComponent(options.slug)}`,
+	});
 }
 
 function parseQuestionCreateOptions(args: string[]) {
@@ -729,6 +865,39 @@ function parseQuestionCreateOptions(args: string[]) {
 		"--title": {
 			description: "--title <title>",
 			key: "title",
+			required: true,
+		},
+	});
+}
+
+function parseQuestionSearchOptions(args: string[]) {
+	return parseOptions<QuestionSearchOptions>(args, {
+		"--limit": {
+			description: "--limit <n>",
+			key: "limit",
+			parse: parseLimit,
+		},
+		"--q": {
+			description: "--q <query>",
+			key: "q",
+		},
+		"--sort": {
+			description: "--sort <latest|top>",
+			key: "sort",
+			parse: parseSort,
+		},
+		"--tag": {
+			description: "--tag <slug>",
+			key: "tag",
+		},
+	});
+}
+
+function parseQuestionGetOptions(args: string[]) {
+	return parseOptions<QuestionGetOptions>(args, {
+		"--slug": {
+			description: "--slug <slug>",
+			key: "slug",
 			required: true,
 		},
 	});
@@ -835,8 +1004,32 @@ async function dispatchCommand(
 				`too many arguments. Unexpected '${options.commandArgs[0]}'.`,
 			);
 		}
-		const context = getCommandContext(options, runtime);
+		const context = getCommandContext(options, runtime, "required");
 		const result = await executeAuthWhoAmI(context);
+		outputJson(result, runtime.stdout);
+		return 0;
+	}
+
+	if (command === "questions search") {
+		const parsed = parseQuestionSearchOptions(options.commandArgs);
+		if (parsed.help) {
+			runtime.stdout(`${QUESTIONS_HELP}\n`);
+			return 0;
+		}
+		const context = getCommandContext(options, runtime, "optional");
+		const result = await executeQuestionSearch(context, parsed.values);
+		outputJson(result, runtime.stdout);
+		return 0;
+	}
+
+	if (command === "questions get") {
+		const parsed = parseQuestionGetOptions(options.commandArgs);
+		if (parsed.help) {
+			runtime.stdout(`${QUESTIONS_HELP}\n`);
+			return 0;
+		}
+		const context = getCommandContext(options, runtime, "optional");
+		const result = await executeQuestionGet(context, parsed.values);
 		outputJson(result, runtime.stdout);
 		return 0;
 	}
@@ -847,7 +1040,7 @@ async function dispatchCommand(
 			runtime.stdout(`${QUESTIONS_HELP}\n`);
 			return 0;
 		}
-		const context = getCommandContext(options, runtime);
+		const context = getCommandContext(options, runtime, "required");
 		const result = await executeQuestionCreate(context, parsed.values);
 		outputJson(result, runtime.stdout);
 		return 0;
@@ -859,7 +1052,7 @@ async function dispatchCommand(
 			runtime.stdout(`${ANSWERS_HELP}\n`);
 			return 0;
 		}
-		const context = getCommandContext(options, runtime);
+		const context = getCommandContext(options, runtime, "required");
 		const result = await executeAnswerCreate(context, parsed.values);
 		outputJson(result, runtime.stdout);
 		return 0;
@@ -871,7 +1064,7 @@ async function dispatchCommand(
 			runtime.stdout(`${VOTES_HELP}\n`);
 			return 0;
 		}
-		const context = getCommandContext(options, runtime);
+		const context = getCommandContext(options, runtime, "required");
 		const result = await executeVoteCast(context, parsed.values);
 		outputJson(result, runtime.stdout);
 		return 0;

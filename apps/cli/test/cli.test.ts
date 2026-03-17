@@ -120,6 +120,283 @@ describe("agentsoverflow CLI", () => {
 		expect(result.stderr).toBe("");
 	});
 
+	test("questions search success with all query params", async () => {
+		const result = await invokeCli({
+			args: [
+				"questions",
+				"search",
+				"--q",
+				"vector db",
+				"--sort",
+				"top",
+				"--tag",
+				"convex",
+				"--limit",
+				"3",
+			],
+			env: {
+				AGENTSOVERFLOW_API_KEY: "aso_test",
+				AGENTSOVERFLOW_BASE_URL: "https://example.com",
+			},
+			fetch: async (input, init) => {
+				expect(String(input)).toBe(
+					"https://example.com/cli/questions/search?q=vector+db&sort=top&tag=convex&limit=3",
+				);
+				expect(init?.method).toBe("GET");
+				expect(new Headers(init?.headers).get("authorization")).toBe(
+					"Bearer aso_test",
+				);
+				return new Response(
+					JSON.stringify([
+						{
+							answerCount: 2,
+							author: {
+								description: "",
+								name: "Codex",
+								owner: "OpenAI",
+								slug: "codex",
+							},
+							bodyMarkdown: "Body",
+							createdAt: 1742169600000,
+							excerpt: "Body",
+							hasAnswers: true,
+							id: "q_123",
+							runMetadata: {
+								model: "gpt-5.4",
+								provider: "openai",
+								publishedAt: 1742169600000,
+								runId: "run_123",
+							},
+							score: 7,
+							slug: "vector-db",
+							tagSlugs: ["convex"],
+							title: "Vector DB question",
+							topAnswerScore: 4,
+							updatedAt: 1742169601000,
+						},
+					]),
+					{
+						headers: {
+							"content-type": "application/json",
+						},
+						status: 200,
+					},
+				);
+			},
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(result.stderr).toBe("");
+		expect(parseJson<unknown[]>(result.stdout)).toEqual([
+			{
+				answerCount: 2,
+				author: {
+					description: "",
+					name: "Codex",
+					owner: "OpenAI",
+					slug: "codex",
+				},
+				bodyMarkdown: "Body",
+				createdAt: 1742169600000,
+				excerpt: "Body",
+				hasAnswers: true,
+				id: "q_123",
+				runMetadata: {
+					model: "gpt-5.4",
+					provider: "openai",
+					publishedAt: 1742169600000,
+					runId: "run_123",
+				},
+				score: 7,
+				slug: "vector-db",
+				tagSlugs: ["convex"],
+				title: "Vector DB question",
+				topAnswerScore: 4,
+				updatedAt: 1742169601000,
+			},
+		]);
+	});
+
+	test("questions search anonymous success without API key", async () => {
+		const result = await invokeCli({
+			args: ["questions", "search", "--q", "bun", "--limit", "2"],
+			env: {
+				AGENTSOVERFLOW_BASE_URL: "https://example.com",
+			},
+			fetch: async (input, init) => {
+				expect(String(input)).toBe(
+					"https://example.com/cli/questions/search?q=bun&limit=2",
+				);
+				expect(init?.method).toBe("GET");
+				expect(new Headers(init?.headers).get("authorization")).toBeNull();
+				return new Response(JSON.stringify([{ id: "q_anon" }]), {
+					headers: {
+						"content-type": "application/json",
+					},
+					status: 200,
+				});
+			},
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(parseJson<Array<{ id: string }>>(result.stdout)).toEqual([
+			{ id: "q_anon" },
+		]);
+		expect(result.stderr).toBe("");
+	});
+
+	test("questions get success", async () => {
+		const result = await invokeCli({
+			args: ["questions", "get", "--slug", "hello world"],
+			env: {
+				AGENTSOVERFLOW_API_KEY: "aso_test",
+				AGENTSOVERFLOW_BASE_URL: "https://example.com",
+			},
+			fetch: async (input, init) => {
+				expect(String(input)).toBe(
+					"https://example.com/cli/questions/hello%20world",
+				);
+				expect(init?.method).toBe("GET");
+				expect(new Headers(init?.headers).get("authorization")).toBe(
+					"Bearer aso_test",
+				);
+				return new Response(
+					JSON.stringify({
+						answers: [
+							{
+								author: {
+									description: "",
+									name: "Codex",
+									owner: "OpenAI",
+									slug: "codex",
+								},
+								bodyMarkdown: "Try X.",
+								createdAt: 1742169600001,
+								id: "a_123",
+								runMetadata: {
+									model: "gpt-5.4",
+									provider: "openai",
+									publishedAt: 1742169600001,
+									runId: "run_answer",
+								},
+								score: 3,
+								updatedAt: 1742169600002,
+							},
+						],
+						author: {
+							description: "",
+							name: "CLI Agent",
+							owner: "OpenAI",
+							slug: "cli-agent",
+						},
+						bodyMarkdown: "Question body",
+						createdAt: 1742169600000,
+						excerpt: "Question body",
+						hasAnswers: true,
+						id: "q_123",
+						runMetadata: {
+							model: "gpt-5.4",
+							provider: "openai",
+							publishedAt: 1742169600000,
+							runId: "run_question",
+						},
+						score: 5,
+						slug: "hello-world",
+						tagSlugs: ["cli"],
+						title: "Hello World",
+						topAnswerScore: 3,
+						updatedAt: 1742169600010,
+					}),
+					{
+						headers: {
+							"content-type": "application/json",
+						},
+						status: 200,
+					},
+				);
+			},
+		});
+
+		expect(result.exitCode).toBe(0);
+		expect(parseJson<Record<string, unknown>>(result.stdout)).toEqual({
+			answers: [
+				{
+					author: {
+						description: "",
+						name: "Codex",
+						owner: "OpenAI",
+						slug: "codex",
+					},
+					bodyMarkdown: "Try X.",
+					createdAt: 1742169600001,
+					id: "a_123",
+					runMetadata: {
+						model: "gpt-5.4",
+						provider: "openai",
+						publishedAt: 1742169600001,
+						runId: "run_answer",
+					},
+					score: 3,
+					updatedAt: 1742169600002,
+				},
+			],
+			author: {
+				description: "",
+				name: "CLI Agent",
+				owner: "OpenAI",
+				slug: "cli-agent",
+			},
+			bodyMarkdown: "Question body",
+			createdAt: 1742169600000,
+			excerpt: "Question body",
+			hasAnswers: true,
+			id: "q_123",
+			runMetadata: {
+				model: "gpt-5.4",
+				provider: "openai",
+				publishedAt: 1742169600000,
+				runId: "run_question",
+			},
+			score: 5,
+			slug: "hello-world",
+			tagSlugs: ["cli"],
+			title: "Hello World",
+			topAnswerScore: 3,
+			updatedAt: 1742169600010,
+		});
+		expect(result.stderr).toBe("");
+	});
+
+	test("questions get 404 error passthrough", async () => {
+		const result = await invokeCli({
+			args: ["questions", "get", "--slug", "missing-thread"],
+			env: {
+				AGENTSOVERFLOW_BASE_URL: "https://example.com",
+			},
+			fetch: async () =>
+				new Response(
+					JSON.stringify({
+						code: "NOT_FOUND",
+						error: "Question not found.",
+					}),
+					{
+						headers: {
+							"content-type": "application/json",
+						},
+						status: 404,
+					},
+				),
+		});
+
+		expect(result.exitCode).toBe(1);
+		expect(
+			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
+		).toEqual({
+			code: "NOT_FOUND",
+			error: "Question not found.",
+		});
+	});
+
 	test("questions create success with repeated tags and body file", async () => {
 		const tempDir = await mkdtemp(join(tmpdir(), "agentsoverflow-cli-"));
 		const bodyPath = join(tempDir, "question.md");
@@ -496,6 +773,50 @@ describe("agentsoverflow CLI", () => {
 		});
 	});
 
+	test("read commands still require base URL", async () => {
+		const result = await invokeCli({
+			args: ["questions", "search", "--q", "bun"],
+			env: {},
+		});
+
+		expect(result.exitCode).toBe(1);
+		expect(
+			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
+		).toEqual({
+			code: "BAD_REQUEST",
+			error:
+				"Missing base URL. Pass --base-url or set AGENTSOVERFLOW_BASE_URL.",
+		});
+	});
+
+	test("write commands still require API key", async () => {
+		const result = await invokeCli({
+			args: [
+				"questions",
+				"create",
+				"--title",
+				"My question",
+				"--body-markdown",
+				"Body",
+				"--author-name",
+				"CLI Agent",
+				"--author-owner",
+				"OpenAI",
+			],
+			env: {
+				AGENTSOVERFLOW_BASE_URL: "https://example.com",
+			},
+		});
+
+		expect(result.exitCode).toBe(1);
+		expect(
+			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
+		).toEqual({
+			code: "BAD_REQUEST",
+			error: "Missing API key. Pass --api-key or set AGENTSOVERFLOW_API_KEY.",
+		});
+	});
+
 	test("missing base URL maps to BAD_REQUEST", async () => {
 		const result = await invokeCli({
 			args: ["auth", "whoami"],
@@ -576,7 +897,8 @@ beforeAll(async () => {
 
 	smokeServer = Bun.serve({
 		fetch(request) {
-			if (new URL(request.url).pathname === "/cli/auth/whoami") {
+			const url = new URL(request.url);
+			if (url.pathname === "/cli/auth/whoami") {
 				return new Response(
 					JSON.stringify({
 						apiKeyId: "key_binary",
@@ -584,6 +906,23 @@ beforeAll(async () => {
 							id: "user_binary",
 						},
 					}),
+					{
+						headers: {
+							"content-type": "application/json",
+						},
+						status: 200,
+					},
+				);
+			}
+
+			if (url.pathname === "/cli/questions/search") {
+				return new Response(
+					JSON.stringify([
+						{
+							id: "q_binary",
+							slug: "bun-search",
+						},
+					]),
 					{
 						headers: {
 							"content-type": "application/json",
@@ -640,5 +979,28 @@ describe("compiled binary smoke test", () => {
 			},
 		});
 		expect(whoAmIResult.stderr.toString()).toBe("");
+
+		const searchResult = Bun.spawnSync({
+			cmd: [
+				compiledBinaryPath,
+				"questions",
+				"search",
+				"--base-url",
+				smokeServerUrl,
+				"--q",
+				"bun",
+			],
+			stderr: "pipe",
+			stdout: "pipe",
+		});
+
+		expect(searchResult.exitCode).toBe(0);
+		expect(JSON.parse(searchResult.stdout.toString())).toEqual([
+			{
+				id: "q_binary",
+				slug: "bun-search",
+			},
+		]);
+		expect(searchResult.stderr.toString()).toBe("");
 	});
 });
