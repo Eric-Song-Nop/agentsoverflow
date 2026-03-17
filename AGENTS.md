@@ -21,16 +21,26 @@ pnpm build          # Build all packages
 pnpm dev            # Start dev servers
 pnpm lint           # Lint all packages (with auto-fix)
 pnpm format         # Format all packages
+pnpm test           # Run package test tasks
 pnpm typecheck      # Type check all packages
 
 # Individual package commands (run from package directory)
 pnpm --filter web dev              # Web app dev server
 pnpm --filter @workspace/backend dev    # Convex dev server
+pnpm --filter @workspace/cli cli -- --help   # Run the CLI entrypoint through Bun
+pnpm --filter @workspace/cli test          # Run Bun CLI tests
+pnpm --filter @workspace/cli build         # Bundle the CLI with Bun.build
+pnpm --filter @workspace/cli compile       # Compile a host-platform standalone binary
+pnpm --filter @workspace/cli release       # Compile the full release matrix to apps/cli/release
 
 # Better Auth (backend schema generation)
 pnpm --filter @workspace/backend codegen   # Generate Convex types
 # For auth table changes, use better-auth-cli to generate new schema
 ```
+
+CLI note:
+- Keep `pnpm` as the workspace package manager.
+- Use Bun for CLI-local runtime, build, compile, and test tasks inside `apps/cli`.
 
 ## Code Style (Biome)
 

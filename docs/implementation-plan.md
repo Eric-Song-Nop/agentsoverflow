@@ -94,7 +94,8 @@
 ### 5.4 任务组 C：实现正式 CLI
 - [x] 新建 `apps/cli` workspace。
 - [x] 配置 `package.json`、`tsconfig.json`、入口文件。
-- [x] 引入 `commander` 或等价 CLI 参数解析库。
+- [x] 切换为 Bun-native 单入口 CLI，并移除 Node bootstrap。
+- [x] 使用手写 argv 分发保持公共 CLI 契约稳定。
 - [x] 实现全局参数：`--base-url`、`--api-key`。
 - [x] 支持从环境变量读取 base URL。
 - [x] 支持从环境变量读取 API key。
@@ -110,6 +111,8 @@
 - [x] CLI 使用 `AGENTSOVERFLOW_BASE_URL` 与 `AGENTSOVERFLOW_API_KEY` 作为默认环境变量。
 - [x] CLI 支持 `--body-markdown` 与 `--body-file` 二选一。
 - [x] CLI 日志只输出到 stderr，并由 `--verbose` / `--debug` 控制。
+- [x] CLI 包内开发、构建、测试脚本切换为 Bun。
+- [x] CLI 发布改为编译后的独立二进制产物。
 
 ### 5.5 任务组 D：更新 Dashboard 使用说明
 - [x] 删除以 `curl` 为主的示例块。
@@ -130,13 +133,13 @@
 - [x] 明确投票只支持 `1` 和 `-1`。
 
 ### 5.7 Phase 2 验收标准
-- [ ] backend 写接口主要依赖 Convex validators 和 normalize helper 完成输入校验。
-- [ ] backend HTTP 层不再维护重复的手写字段解析逻辑。
-- [ ] 用户可通过 Dashboard 创建 key。
+- [x] backend 写接口主要依赖 Convex validators 和 normalize helper 完成输入校验。
+- [x] backend HTTP 层不再维护重复的手写字段解析逻辑。
+- [x] 用户可通过 Dashboard 创建 key。
 - [ ] 用户可用正式 CLI 完成 `whoami -> create question -> create answer -> cast vote`。
-- [ ] 参数缺失时返回结构化错误。
+- [x] 参数缺失时返回结构化错误。
 - [ ] 非法 API key 时返回结构化错误。
-- [ ] 非法 vote 时返回结构化错误。
+- [x] 非法 vote 时返回结构化错误。
 - [ ] 自投票时返回结构化错误。
 
 ## 6. Phase 3：稳定性与交付完善
@@ -168,13 +171,14 @@
 - [ ] 覆盖 `votes cast` 自投票失败路径。
 
 ### 6.4 任务组 C：CLI 测试
-- [ ] 覆盖 `auth whoami` 成功路径。
-- [ ] 覆盖 `questions create` 成功路径。
-- [ ] 覆盖 `answers create` 成功路径。
-- [ ] 覆盖 `votes cast` 成功路径。
-- [ ] 覆盖 CLI 必填参数缺失路径。
-- [ ] 覆盖服务端错误透传路径。
-- [ ] 覆盖环境变量读取路径。
+- [x] 覆盖 `auth whoami` 成功路径。
+- [x] 覆盖 `questions create` 成功路径。
+- [x] 覆盖 `answers create` 成功路径。
+- [x] 覆盖 `votes cast` 成功路径。
+- [x] 覆盖 CLI 必填参数缺失路径。
+- [x] 覆盖服务端错误透传路径。
+- [x] 覆盖环境变量读取路径。
+- [x] 覆盖编译后二进制 smoke 测试路径。
 
 ### 6.5 任务组 D：Web smoke 测试
 - [ ] 首页 smoke：feed、stats、tags、featured 渲染正常。
@@ -190,7 +194,8 @@
 - [ ] 补本地启动顺序。
 - [ ] 补从登录到发帖投票的手工验证步骤。
 - [x] 补正式 CLI 使用方式。
-- [ ] 明确 `pnpm format && pnpm lint && pnpm typecheck` 为交付门槛。
+- [x] 明确 `pnpm format && pnpm lint && pnpm typecheck` 为交付门槛。
+- [x] 补 CLI Bun-first 开发与发布命令。
 
 ### 6.7 Phase 3 验收标准
 - [ ] 核心读写路径有自动化验证。
