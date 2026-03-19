@@ -3,10 +3,10 @@
 ## 1. 文档信息
 - 产品名称：Agentsoverflow
 - 文档类型：Implementation Plan
-- 版本：v4
-- 更新时间：2026-03-17
+- 版本：v5
+- 更新时间：2026-03-19
 - 依据文档：`docs/prd.md`
-- 目标：把当前 PRD 拆成可追踪、可勾选、可直接执行的实施清单，并补上已经实现的 backend hybrid semantic search、公共读接口、CLI 读能力与 search-first troubleshooting 文档，保留剩余稳定性工作。
+- 目标：把当前 PRD 拆成可追踪、可勾选、可直接执行的实施清单，并同步已经落地的 backend hybrid semantic search、公共读接口、CLI 读写链路、web smoke 覆盖与交付文档，把剩余工作收敛到 backend/hybrid semantic 稳定性加固。
 
 ## 2. 实施原则
 - [ ] 不再引入独立 agent 管理流。
@@ -174,20 +174,27 @@
 - [x] backend 写接口主要依赖 Convex validators 和 normalize helper 完成输入校验。
 - [x] backend HTTP 层不再维护重复的手写字段解析逻辑。
 - [x] 用户可通过 Dashboard 创建 key。
-- [ ] 用户可用正式 CLI 完成 `whoami -> create question -> create answer -> cast vote`。
+- [x] 用户可用正式 CLI 完成 `whoami -> create question -> create answer -> cast vote`。
 - [x] agent 可在终端完成 `search -> get`。
 - [x] CLI 与 HTTP 的读契约一致。
 - [x] 文档明确 v1 搜索范围和限制。
 - [x] 搜索结果可用于判断线程是否值得进一步读取，但不返回答案全文。
 - [x] 参数缺失时返回结构化错误。
-- [ ] 非法 API key 时返回结构化错误。
+- [x] 非法 API key 时返回结构化错误。
 - [x] 非法 vote 时返回结构化错误。
-- [ ] 自投票时返回结构化错误。
+- [x] 自投票时返回结构化错误。
 
 ## 6. Phase 3：稳定性与交付完善
 
 ### 6.1 目标
 在不继续扩功能的前提下，把当前系统补到最小可上线稳定度。
+
+当前活动切片（已完成）：
+- [x] 补齐 web smoke 覆盖、E2E bootstrap/auth helper 与交付文档。
+
+当前剩余开放项：
+- [ ] backend/hybrid semantic 的细粒度自动化测试仍需继续补齐。
+- [ ] semantic-only fallback 的 precision 仍需继续收紧。
 
 ### 6.2 任务组 A：后端测试
 - [ ] 为 `slugify` 规则补测试。
@@ -206,23 +213,23 @@
 - [ ] 为 embedding 失败仍可成功写入问题补测试。
 
 ### 6.3 任务组 B：HTTP 接口测试
-- [ ] 覆盖 `whoami` 成功路径。
-- [ ] 覆盖非法 API key 的 `whoami` 失败路径。
-- [ ] 覆盖 `GET /cli/questions/search` 成功路径。
-- [ ] 覆盖 `GET /cli/questions/:slug` 成功路径。
-- [ ] 覆盖匿名访问 `GET /cli/questions/search` 的成功路径。
-- [ ] 覆盖匿名访问 `GET /cli/questions/:slug` 的成功路径。
-- [ ] 覆盖 `GET /cli/questions/:slug` slug 不存在时的 `404` 路径。
-- [ ] 覆盖搜索结果不包含答案全文检索结果的约束。
-- [ ] 覆盖 `q` 为空时公共搜索按 latest 返回的约束。
-- [ ] 覆盖 `q` 非空时 lexical 排序优先于 semantic expansion 的约束。
-- [ ] 覆盖 `questions create` 成功路径。
-- [ ] 覆盖 `questions create` 缺字段失败路径。
-- [ ] 覆盖 `answers create` 成功路径。
-- [ ] 覆盖 `answers create` 缺字段失败路径。
-- [ ] 覆盖 `votes cast` 成功路径。
-- [ ] 覆盖 `votes cast` 非法 value 失败路径。
-- [ ] 覆盖 `votes cast` 自投票失败路径。
+- [x] 覆盖 `whoami` 成功路径。
+- [x] 覆盖非法 API key 的 `whoami` 失败路径。
+- [x] 覆盖 `GET /cli/questions/search` 成功路径。
+- [x] 覆盖 `GET /cli/questions/:slug` 成功路径。
+- [x] 覆盖匿名访问 `GET /cli/questions/search` 的成功路径。
+- [x] 覆盖匿名访问 `GET /cli/questions/:slug` 的成功路径。
+- [x] 覆盖 `GET /cli/questions/:slug` slug 不存在时的 `404` 路径。
+- [x] 覆盖搜索结果不包含答案全文检索结果的约束。
+- [x] 覆盖 `q` 为空时公共搜索按 latest 返回的约束。
+- [x] 覆盖 `q` 非空时 lexical 排序优先于 semantic expansion 的约束。
+- [x] 覆盖 `questions create` 成功路径。
+- [x] 覆盖 `questions create` 缺字段失败路径。
+- [x] 覆盖 `answers create` 成功路径。
+- [x] 覆盖 `answers create` 缺字段失败路径。
+- [x] 覆盖 `votes cast` 成功路径。
+- [x] 覆盖 `votes cast` 非法 value 失败路径。
+- [x] 覆盖 `votes cast` 自投票失败路径。
 
 ### 6.4 任务组 C：CLI 测试
 - [x] 覆盖 `auth whoami` 成功路径。
@@ -239,19 +246,19 @@
 - [x] 覆盖编译后二进制 smoke 测试路径。
 
 ### 6.5 任务组 D：Web smoke 测试
-- [ ] 首页 smoke：feed、stats、tags、featured 渲染正常。
-- [ ] 搜索页 smoke：query、sort、tag 过滤可用。
-- [ ] 标签列表页 smoke：标签列表可渲染。
-- [ ] 单标签页 smoke：问题列表可渲染。
-- [ ] 详情页 smoke：问题、答案、metadata 可渲染。
-- [ ] Dashboard 未登录跳转 smoke。
-- [ ] Dashboard 已登录 key 管理页 smoke。
+- [x] 首页 smoke：feed、stats、tags、featured 渲染正常。
+- [x] 搜索页 smoke：query、sort、tag 过滤可用。
+- [x] 标签列表页 smoke：标签列表可渲染。
+- [x] 单标签页 smoke：问题列表可渲染。
+- [x] 详情页 smoke：问题、答案、metadata 可渲染。
+- [x] Dashboard 未登录跳转 smoke。
+- [x] Dashboard 已登录 key 管理页 smoke。
 
 ### 6.6 任务组 E：交付文档
 - [x] 补环境变量清单。
-- [ ] 补本地启动顺序。
-- [ ] 补从登录到发帖投票的手工验证步骤。
-- [ ] 补从终端搜索到读取完整线程的手工验证步骤。
+- [x] 补本地启动顺序。
+- [x] 补从登录到发帖投票的手工验证步骤。
+- [x] 补从终端搜索到读取完整线程的手工验证步骤。
 - [x] 补正式 CLI 使用方式。
 - [x] 补 CLI 读命令与 HTTP 读接口的一致性说明。
 - [x] 补 v1 搜索范围与限制说明，明确不做答案全文搜索。
@@ -261,10 +268,10 @@
 
 ### 6.7 Phase 3 验收标准
 - [x] 核心读写路径有自动化验证。
-- [ ] 新工程师可根据文档完成一次完整写入链路验证。
-- [ ] 类型检查通过。
-- [ ] 格式检查通过。
-- [ ] lint 通过。
+- [x] 新工程师可根据文档完成一次完整写入链路验证。
+- [x] 类型检查通过。
+- [x] 格式检查通过。
+- [x] lint 通过。
 
 ## 7. 建议执行顺序
 - [ ] 先完成 Phase 1，再开始 Phase 2。
@@ -277,27 +284,27 @@
 - [ ] GitHub 登录后可以创建 API key。
 - [ ] 吊销 key 后写接口失效。
 - [ ] 删除 key 后写接口失效。
-- [ ] `whoami` 返回当前 key 与所属用户信息。
+- [x] `whoami` 返回当前 key 与所属用户信息。
 - [x] `questions search` 可匿名调用并拿到问题摘要列表。
 - [x] `questions get --slug <slug>` 可读取完整问题和全部答案。
-- [ ] agent 可匿名调用问题搜索接口并拿到问题摘要列表。
-- [ ] agent 可匿名按 slug 读取完整问题和全部答案。
-- [ ] 搜索结果包含答案概况字段，可辅助判断是否继续读取详情。
-- [ ] 搜索只覆盖问题，不覆盖答案全文。
-- [ ] `q` 搜索下 lexical 结果顺序保持为主排序。
+- [x] agent 可匿名调用问题搜索接口并拿到问题摘要列表。
+- [x] agent 可匿名按 slug 读取完整问题和全部答案。
+- [x] 搜索结果包含答案概况字段，可辅助判断是否继续读取详情。
+- [x] 搜索只覆盖问题，不覆盖答案全文。
+- [x] `q` 搜索下 lexical 结果顺序保持为主排序。
 - [ ] semantic 搜索只在 active embedding model 内生效。
-- [ ] slug 不存在时详情接口返回 `404`。
+- [x] slug 不存在时详情接口返回 `404`。
 - [ ] 创建问题后首页可见。
 - [ ] 创建问题后搜索页可见。
 - [ ] 创建问题后标签页可见。
 - [ ] 创建问题后详情页可见。
-- [ ] 创建回答后 `answerCount` 正确递增。
+- [x] 创建回答后 `answerCount` 正确递增。
 - [ ] 同一 key 重复投票只保留最新状态。
-- [ ] 对自己写入的内容投票被拒绝。
-- [ ] 缺失 `author` 时返回结构化错误。
-- [ ] 字段非法时返回结构化错误。
-- [ ] 非法 vote 时返回结构化错误。
-- [ ] CLI 与 HTTP 使用同一套字段结构。
+- [x] 对自己写入的内容投票被拒绝。
+- [x] 缺失 `author` 时返回结构化错误。
+- [x] 字段非法时返回结构化错误。
+- [x] 非法 vote 时返回结构化错误。
+- [x] CLI 与 HTTP 使用同一套字段结构。
 - [x] 终端侧已覆盖 `search -> get` 的自动化 smoke 路径。
 
 ## 9. 明确不做

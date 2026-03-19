@@ -18,6 +18,7 @@ import { Route as TagsIndexRouteImport } from './routes/tags.index'
 import { Route as TagsTagRouteImport } from './routes/tags.$tag'
 import { Route as QuestionsQuestionSlugRouteImport } from './routes/questions.$questionSlug'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiTestE2eBootstrapRouteImport } from './routes/api/test/e2e/bootstrap'
 
 const TagsRoute = TagsRouteImport.update({
   id: '/tags',
@@ -64,6 +65,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTestE2eBootstrapRoute = ApiTestE2eBootstrapRouteImport.update({
+  id: '/api/test/e2e/bootstrap',
+  path: '/api/test/e2e/bootstrap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/tags/$tag': typeof TagsTagRoute
   '/tags/': typeof TagsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/test/e2e/bootstrap': typeof ApiTestE2eBootstrapRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/tags/$tag': typeof TagsTagRoute
   '/tags': typeof TagsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/test/e2e/bootstrap': typeof ApiTestE2eBootstrapRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/tags/$tag': typeof TagsTagRoute
   '/tags/': typeof TagsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/test/e2e/bootstrap': typeof ApiTestE2eBootstrapRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/tags/$tag'
     | '/tags/'
     | '/api/auth/$'
+    | '/api/test/e2e/bootstrap'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/tags/$tag'
     | '/tags'
     | '/api/auth/$'
+    | '/api/test/e2e/bootstrap'
   id:
     | '__root__'
     | '/'
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/tags/$tag'
     | '/tags/'
     | '/api/auth/$'
+    | '/api/test/e2e/bootstrap'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   TagsRoute: typeof TagsRouteWithChildren
   QuestionsQuestionSlugRoute: typeof QuestionsQuestionSlugRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiTestE2eBootstrapRoute: typeof ApiTestE2eBootstrapRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/test/e2e/bootstrap': {
+      id: '/api/test/e2e/bootstrap'
+      path: '/api/test/e2e/bootstrap'
+      fullPath: '/api/test/e2e/bootstrap'
+      preLoaderRoute: typeof ApiTestE2eBootstrapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -231,6 +251,7 @@ const rootRouteChildren: RootRouteChildren = {
   TagsRoute: TagsRouteWithChildren,
   QuestionsQuestionSlugRoute: QuestionsQuestionSlugRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiTestE2eBootstrapRoute: ApiTestE2eBootstrapRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

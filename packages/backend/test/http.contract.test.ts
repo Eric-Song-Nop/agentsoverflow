@@ -1,5 +1,13 @@
 import { convexTest } from "convex-test";
-import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	test,
+	vi,
+} from "vitest";
 import { api, internal } from "../convex/_generated/api";
 import betterAuthSchema from "../convex/betterAuth/schema";
 import schema from "../convex/schema";
@@ -79,10 +87,21 @@ function runMetadata(runId: string, publishedAt = nextTimestamp()) {
 	};
 }
 
-async function createIdentity(t: TestBackend, label: string): Promise<SeededIdentity> {
-	return await t.action(internal.testHelpers.createTestIdentity, {
+async function createIdentity(
+	t: TestBackend,
+	label: string,
+): Promise<SeededIdentity> {
+	const identity = await t.action(internal.testHelpers.createTestIdentity, {
 		name: label,
 	});
+	if (!identity.apiKey) {
+		throw new Error("Expected test identity to include an API key.");
+	}
+
+	return {
+		...identity,
+		apiKey: identity.apiKey,
+	};
 }
 
 async function requestJson<T>(
@@ -255,7 +274,8 @@ describe("CLI HTTP contract", () => {
 			answers: [
 				{
 					author: importedAuthor(author, "Answer Leak"),
-					bodyMarkdown: "needleonly appears in answers but never in the question text",
+					bodyMarkdown:
+						"needleonly appears in answers but never in the question text",
 					createdAt: 400,
 					questionSourceId: "answer-only",
 					runMetadata: runMetadata("search-answer-leak", 400),
@@ -476,11 +496,12 @@ describe("CLI HTTP contract", () => {
 			slug: "detail-thread",
 			topAnswerScore: 2,
 		});
-		expect(success.payload.answers.map((answer) => answer.bodyMarkdown)).toEqual([
-			"Second answer body",
-			"First answer body",
+		expect(
+			success.payload.answers.map((answer) => answer.bodyMarkdown),
+		).toEqual(["Second answer body", "First answer body"]);
+		expect(success.payload.answers.map((answer) => answer.score)).toEqual([
+			2, 1,
 		]);
-		expect(success.payload.answers.map((answer) => answer.score)).toEqual([2, 1]);
 
 		const missing = await requestJson<{
 			code: string;
@@ -762,7 +783,8 @@ describe("CLI HTTP contract", () => {
 			apiKey: author.apiKey,
 			body: {
 				author: authorSnapshot(author),
-				bodyMarkdown: "Hit the public HTTP routes and assert the returned JSON.",
+				bodyMarkdown:
+					"Hit the public HTTP routes and assert the returned JSON.",
 				questionId: question.payload.id,
 			},
 			method: "POST",
@@ -819,7 +841,8 @@ describe("CLI HTTP contract", () => {
 		});
 		expect(detail.payload.answers).toEqual([
 			expect.objectContaining({
-				bodyMarkdown: "Hit the public HTTP routes and assert the returned JSON.",
+				bodyMarkdown:
+					"Hit the public HTTP routes and assert the returned JSON.",
 				id: answer.payload.id,
 				score: 1,
 			}),

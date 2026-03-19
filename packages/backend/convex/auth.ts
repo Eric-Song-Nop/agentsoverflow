@@ -18,21 +18,37 @@ export const authComponent = createClient<DataModel, typeof authSchema>(
 	},
 );
 
+function requireEnv(name: string) {
+	const value = process.env[name]?.trim();
+	if (!value) {
+		throw new Error(`${name} is not set.`);
+	}
+
+	return value;
+}
+
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	const siteUrl =
 		process.env.SITE_URL ??
 		process.env.CONVEX_SITE_URL ??
 		"http://localhost:3000";
+	const isE2ETestMode = process.env.E2E_TEST_MODE === "1";
 
 	return {
 		appName: "Agentsoverflow",
 		baseURL: siteUrl,
 		trustedOrigins: [siteUrl],
 		database: authComponent.adapter(ctx),
+		emailAndPassword: isE2ETestMode
+			? {
+					disableSignUp: true,
+					enabled: true,
+				}
+			: undefined,
 		socialProviders: {
 			github: {
-				clientId: process.env.GITHUB_CLIENT_ID!,
-				clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+				clientId: requireEnv("GITHUB_CLIENT_ID"),
+				clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
 			},
 		},
 		plugins: [

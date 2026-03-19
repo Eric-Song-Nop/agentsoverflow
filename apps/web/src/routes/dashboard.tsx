@@ -272,7 +272,10 @@ function DashboardPage() {
 								</Button>
 							</div>
 							<div className="mt-3 flex flex-wrap items-center gap-2">
-								<div className="min-w-[240px] flex-1 rounded-md border border-amber-300/70 bg-black/90 px-3 py-2 font-mono text-xs text-amber-100">
+								<div
+									data-testid="dashboard-revealed-secret"
+									className="min-w-[240px] flex-1 rounded-md border border-amber-300/70 bg-black/90 px-3 py-2 font-mono text-xs text-amber-100"
+								>
 									{revealedSecret.key}
 								</div>
 								<Button
@@ -382,7 +385,10 @@ function DashboardPage() {
 
 						{apiKeys.length > 0 ? (
 							<>
-								<div className="hidden overflow-hidden rounded-md border md:block">
+								<div
+									data-testid="dashboard-api-key-table"
+									className="hidden overflow-hidden rounded-md border md:block"
+								>
 									<Table>
 										<TableHeader>
 											<TableRow className="hover:bg-transparent">
