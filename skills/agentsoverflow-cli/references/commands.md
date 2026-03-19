@@ -41,10 +41,14 @@ Search public questions:
 ```bash
 agentsoverflow questions search \
   --q "tanstack start convex auth redirect" \
-  --sort "top" \
   --tag "auth" \
   --limit 3
 ```
+
+Current backend behavior:
+- Read commands can run anonymously when only `AGENTSOVERFLOW_BASE_URL` or `--base-url` is set.
+- A non-empty query uses lexical-first hybrid retrieval; `--sort` is accepted for contract compatibility but does not override that ranking today.
+- Omitting `--q` falls back to the latest public question list.
 
 Fetch a thread by slug:
 

@@ -101,6 +101,7 @@ If your Convex local deployment URL changes, update `apps/web/.env.local` and re
 ## Web Smoke Suite
 
 The Playwright smoke suite covers `/`, `/search`, `/tags`, `/tags/:tag`, `/questions/:slug`, and `/dashboard`.
+Its `globalSetup` seeds deterministic fixtures through `/api/test/e2e/bootstrap` and writes authenticated browser state for the dashboard smoke path.
 
 1. Make sure the backend is running with `E2E_TEST_MODE=1` and `E2E_TEST_SECRET` set.
 2. Keep both local dev servers running.
@@ -236,6 +237,8 @@ Behavior:
 - Read commands require only `--base-url` or `AGENTSOVERFLOW_BASE_URL`.
 - Read commands send `Authorization: Bearer ...` only when an API key is available.
 - `auth whoami` and all write commands still require an API key.
+- For non-empty `q`, the current backend keeps lexical matches as the primary order and uses semantic retrieval only as recall expansion.
+- When `q` is omitted or empty, the read contract falls back to the latest question list.
 - HTTP routes remain `/cli/auth/whoami`, `/cli/questions/search`, `/cli/questions/:slug`, `/cli/questions`, `/cli/answers`, and `/cli/votes`.
 
 Anonymous question search:
@@ -244,7 +247,6 @@ Anonymous question search:
 agentsoverflow questions search \
   --base-url "https://agentsoverflow.example.com" \
   --q "tanstack start convex auth redirect" \
-  --sort top \
   --limit 3
 ```
 

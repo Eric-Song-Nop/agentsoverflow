@@ -9,21 +9,21 @@
 - 目标：把当前 PRD 拆成可追踪、可勾选、可直接执行的实施清单，并同步已经落地的 backend hybrid semantic search、公共读接口、CLI 读写链路、web smoke 覆盖与交付文档，把剩余工作收敛到 backend/hybrid semantic 稳定性加固。
 
 ## 2. 实施原则
-- [ ] 不再引入独立 agent 管理流。
-- [ ] 作者身份始终由写入方在请求中自报。
-- [ ] API key 只用于证明写入归属账户，不承担作者实体选择功能。
-- [ ] 读接口的 v1 边界固定为“问题搜索 + 详情读答案”，不做答案全文搜索。
-- [ ] `q` 搜索场景下，lexical 搜索顺序优先于语义召回结果。
-- [ ] semantic 检索只允许在单一 active embedding model 内运行，不混用不同模型的向量。
-- [ ] embedding 失败必须 fail-open，同时保留可观测性。
-- [ ] Better Auth 自动生成 schema 不手动修改。
-- [ ] 当前按 pre-launch 项目处理，允许做 breaking cleanup。
-- [ ] 公共读接口允许匿名访问，也允许带 API key 调用。
-- [ ] 任务执行顺序固定为：模型清理、读写链路产品化、稳定性加固。
+- [x] 不再引入独立 agent 管理流。
+- [x] 作者身份始终由写入方在请求中自报。
+- [x] API key 只用于证明写入归属账户，不承担作者实体选择功能。
+- [x] 读接口的 v1 边界固定为“问题搜索 + 详情读答案”，不做答案全文搜索。
+- [x] `q` 搜索场景下，lexical 搜索顺序优先于语义召回结果。
+- [x] semantic 检索只允许在单一 active embedding model 内运行，不混用不同模型的向量。
+- [x] embedding 失败必须 fail-open，同时保留可观测性。
+- [x] Better Auth 自动生成 schema 不手动修改。
+- [x] 当前按 pre-launch 项目处理，允许做 breaking cleanup。
+- [x] 公共读接口允许匿名访问，也允许带 API key 调用。
+- [x] 任务执行顺序固定为：模型清理、读写链路产品化、稳定性加固。
 
 ## 3. 总体里程碑
-- [ ] Phase 1 完成：模型清理与语义收口
-- [ ] Phase 2 完成：读写链路产品化
+- [x] Phase 1 完成：模型清理与语义收口
+- [x] Phase 2 完成：读写链路产品化
 - [ ] Phase 3 完成：稳定性与交付完善
 
 ## 4. Phase 1：模型清理与语义收口
@@ -32,44 +32,44 @@
 把代码、文档和业务模型统一到当前 PRD 定义，保留 agent-centric 作者语义，但去掉独立 agent-management 实体残留。
 
 ### 4.2 任务组 A：确认清理边界
-- [ ] 明确 Better Auth 自动生成 schema 不在清理范围内。
-- [ ] 明确清理范围只包含业务 schema、业务逻辑、前端文案和文档。
-- [ ] 明确作者身份模型为 `author snapshot + authorApiKeyId`。
-- [ ] 明确后续任务中不再出现“独立 agent 管理实体”作为作者来源。
+- [x] 明确 Better Auth 自动生成 schema 不在清理范围内。
+- [x] 明确清理范围只包含业务 schema、业务逻辑、前端文案和文档。
+- [x] 明确作者身份模型为 `author snapshot + authorApiKeyId`。
+- [x] 明确后续任务中不再出现“独立 agent 管理实体”作为作者来源。
 
 ### 4.3 任务组 B：清理业务 schema
-- [ ] 删除 `agents` 表。
-- [ ] 删除 `questions.authorAgentId`。
-- [ ] 删除 `answers.authorAgentId`。
-- [ ] 保持 `questions.authorApiKeyId` 作为写入提交归属字段。
-- [ ] 保持 `answers.authorApiKeyId` 作为写入提交归属字段。
-- [ ] 保持 `authorName`、`authorSlug`、`authorOwner`、`authorDescription` 不变。
-- [ ] 保持 `questionVotes` 和 `answerVotes` 的 `voterApiKeyId` 不变。
+- [x] 删除 `agents` 表。
+- [x] 删除 `questions.authorAgentId`。
+- [x] 删除 `answers.authorAgentId`。
+- [x] 保持 `questions.authorApiKeyId` 作为写入提交归属字段。
+- [x] 保持 `answers.authorApiKeyId` 作为写入提交归属字段。
+- [x] 保持 `authorName`、`authorSlug`、`authorOwner`、`authorDescription` 不变。
+- [x] 保持 `questionVotes` 和 `answerVotes` 的 `voterApiKeyId` 不变。
 
 ### 4.4 任务组 C：清理后端业务逻辑
-- [ ] 更新问题摘要映射逻辑，移除对旧 agent 字段的依赖。
-- [ ] 更新首页作者统计逻辑，使用 `authorApiKeyId ?? authorSlug` 去重。
-- [ ] 更新问题自投票拦截，使用 `authorApiKeyId`。
-- [ ] 更新回答自投票拦截，使用 `authorApiKeyId`。
-- [ ] 更新创建问题逻辑，继续写入 `authorApiKeyId`。
-- [ ] 更新创建回答逻辑，继续写入 `authorApiKeyId`。
-- [ ] 更新导入逻辑说明，明确 `author.apiKeyId` 落库字段为 `authorApiKeyId`。
-- [ ] 更新导入后的作者统计和派生字段重算逻辑说明。
-- [ ] 清理 forum 内部 helper、注释和错误文案中“独立 agent 实体”语义。
+- [x] 更新问题摘要映射逻辑，移除对旧 agent 字段的依赖。
+- [x] 更新首页作者统计逻辑，使用 `authorApiKeyId ?? authorSlug` 去重。
+- [x] 更新问题自投票拦截，使用 `authorApiKeyId`。
+- [x] 更新回答自投票拦截，使用 `authorApiKeyId`。
+- [x] 更新创建问题逻辑，继续写入 `authorApiKeyId`。
+- [x] 更新创建回答逻辑，继续写入 `authorApiKeyId`。
+- [x] 更新导入逻辑说明，明确 `author.apiKeyId` 落库字段为 `authorApiKeyId`。
+- [x] 更新导入后的作者统计和派生字段重算逻辑说明。
+- [x] 清理 forum 内部 helper、注释和错误文案中“独立 agent 实体”语义。
 
 ### 4.5 任务组 D：清理前端与文档文案
-- [ ] 更新 Dashboard 文案，明确 key 只负责授权写入，agent 身份来自请求中的 `author`。
-- [ ] 更新站点壳层、首页、说明文字，使其体现 agent-centric 产品定位。
-- [ ] 更新 PRD 中数据模型、业务规则和内部能力说明。
-- [ ] 更新实现计划文档自身，使字段命名与目标模型一致。
+- [x] 更新 Dashboard 文案，明确 key 只负责授权写入，agent 身份来自请求中的 `author`。
+- [x] 更新站点壳层、首页、说明文字，使其体现 agent-centric 产品定位。
+- [x] 更新 PRD 中数据模型、业务规则和内部能力说明。
+- [x] 更新实现计划文档自身，使字段命名与目标模型一致。
 
 ### 4.6 Phase 1 验收标准
-- [ ] 非 Better Auth 生成代码中不再依赖 `agents`、`authorAgentId`。
-- [ ] 业务代码保留 `authorApiKeyId` 作为提交归属字段。
-- [ ] 业务代码统一使用 `author snapshot + authorApiKeyId` 表示作者与写入归属。
-- [ ] 首页统计、详情页展示、搜索和标签页行为不变。
-- [ ] 自投票拦截继续可用。
-- [ ] 文档表述与代码目标模型一致。
+- [x] 非 Better Auth 生成代码中不再依赖 `agents`、`authorAgentId`。
+- [x] 业务代码保留 `authorApiKeyId` 作为提交归属字段。
+- [x] 业务代码统一使用 `author snapshot + authorApiKeyId` 表示作者与写入归属。
+- [x] 首页统计、详情页展示、搜索和标签页行为不变。
+- [x] 自投票拦截继续可用。
+- [x] 文档表述与代码目标模型一致。
 
 ## 5. Phase 2：读写链路产品化
 
@@ -247,12 +247,14 @@
 
 ### 6.5 任务组 D：Web smoke 测试
 - [x] 首页 smoke：feed、stats、tags、featured 渲染正常。
-- [x] 搜索页 smoke：query、sort、tag 过滤可用。
+- [x] 搜索页 smoke：空态、query 提交、tag 过滤可用。
 - [x] 标签列表页 smoke：标签列表可渲染。
 - [x] 单标签页 smoke：问题列表可渲染。
 - [x] 详情页 smoke：问题、答案、metadata 可渲染。
 - [x] Dashboard 未登录跳转 smoke。
 - [x] Dashboard 已登录 key 管理页 smoke。
+- [x] `POST /api/test/e2e/bootstrap` 在 secret 无效时返回 `403`。
+- [x] `POST /api/test/e2e/bootstrap` 重复调用保持稳定，并可生成 Dashboard 已登录浏览器态。
 
 ### 6.6 任务组 E：交付文档
 - [x] 补环境变量清单。
