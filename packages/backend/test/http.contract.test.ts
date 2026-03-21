@@ -37,6 +37,8 @@ const originalEnv = {
 };
 
 let uniqueCounter = 0;
+const EMBEDDING_DIMENSIONS = 1536;
+const ACTIVE_EMBEDDING_MODEL = "test-embedding-model";
 
 function createTestBackend() {
 	const t = convexTest(schema, import.meta.glob("../convex/**/*.*s"));
@@ -85,6 +87,13 @@ function runMetadata(runId: string, publishedAt = nextTimestamp()) {
 		publishedAt,
 		runId,
 	};
+}
+
+function embeddingVector(primary: number, secondary = 0) {
+	const vector = new Array<number>(EMBEDDING_DIMENSIONS).fill(0);
+	vector[0] = primary;
+	vector[1] = secondary;
+	return vector;
 }
 
 async function createIdentity(
@@ -184,6 +193,29 @@ async function createQuestion(
 	});
 }
 
+async function seedQuestionEmbedding(
+	t: TestBackend,
+	assignment: {
+		embedding: number[];
+		model: string;
+		slug: string;
+	},
+) {
+	const detail = await t.query(api.forum.getQuestionDetail, {
+		slug: assignment.slug,
+	});
+	if (!detail) {
+		throw new Error(`Question ${assignment.slug} was not found.`);
+	}
+
+	await t.mutation(internal.forum.applyQuestionSemanticEmbedding, {
+		embeddedAt: nextTimestamp(),
+		embedding: assignment.embedding,
+		model: assignment.model,
+		questionId: detail.id as never,
+	});
+}
+
 beforeEach(() => {
 	process.env.GITHUB_CLIENT_ID = "test-github-client-id";
 	process.env.GITHUB_CLIENT_SECRET = "test-github-client-secret";
@@ -265,159 +297,140 @@ describe("CLI HTTP contract", () => {
 		);
 	});
 
-	test("GET /cli/questions/search allows anonymous and authenticated access, treats empty q as latest, preserves lexical order, and excludes answer-only matches", async () => {
+	test("GET /cli/questions/search returns the rewritten summary shape for semantic-first search and remains anonymous-readable", async () => {
 		const t = createTestBackend();
 		const author = await createIdentity(t, "Search Author");
 		const authenticatedReader = await createIdentity(t, "Authenticated Reader");
 
 		await t.mutation(internal.forum.importForumSnapshot, {
-			answers: [
-				{
-					author: importedAuthor(author, "Answer Leak"),
-					bodyMarkdown:
-						"needleonly appears in answers but never in the question text",
-					createdAt: 400,
-					questionSourceId: "answer-only",
-					runMetadata: runMetadata("search-answer-leak", 400),
-					sourceId: "answer-leak-1",
-					updatedAt: 400,
-				},
-			],
 			questions: [
 				{
 					author: importedAuthor(author),
-					bodyMarkdown: "This is the newest thread.",
+					bodyMarkdown: "Durable context survives long-running agent loops.",
 					createdAt: 500,
-					runMetadata: runMetadata("latest-thread", 500),
-					slug: "latest-thread",
-					sourceId: "latest-thread",
-					tagSlugs: ["updates"],
-					title: "Latest thread",
+					runMetadata: runMetadata("semantic-http-primary", 500),
+					slug: "semantic-http-primary",
+					sourceId: "semantic-http-primary",
+					tagSlugs: ["convex", "memory"],
+					title: "Durable agent context",
 					updatedAt: 500,
 				},
 				{
 					author: importedAuthor(author),
-					bodyMarkdown: "A highly scored but older discussion.",
-					createdAt: 100,
-					runMetadata: runMetadata("older-popular-thread", 100),
-					slug: "older-popular-thread",
-					sourceId: "older-popular-thread",
-					tagSlugs: ["history"],
-					title: "Older popular thread",
-					updatedAt: 100,
-				},
-				{
-					author: importedAuthor(author),
-					bodyMarkdown: "Shell tooling and Bun runtime notes.",
 					createdAt: 200,
-					runMetadata: runMetadata("bun-shell-scripting-with-convex", 200),
-					slug: "bun-shell-scripting-with-convex",
-					sourceId: "bun-shell",
-					tagSlugs: ["bun", "convex"],
-					title: "Bun shell scripting with Convex",
+					bodyMarkdown: "Legacy vector notes with weaker semantic recall.",
+					runMetadata: runMetadata("semantic-http-secondary", 200),
+					slug: "semantic-http-secondary",
+					sourceId: "semantic-http-secondary",
+					tagSlugs: ["convex", "notes"],
+					title: "Vector notes",
 					updatedAt: 200,
-				},
-				{
-					author: importedAuthor(author),
-					bodyMarkdown: "A lighter Bun overview for agents.",
-					createdAt: 300,
-					runMetadata: runMetadata("using-bun-with-agents", 300),
-					slug: "using-bun-with-agents",
-					sourceId: "bun-agents",
-					tagSlugs: ["bun"],
-					title: "Using Bun with agents",
-					updatedAt: 300,
-				},
-				{
-					author: importedAuthor(author),
-					bodyMarkdown: "Question body without the hidden token.",
-					createdAt: 350,
-					runMetadata: runMetadata("permissions-issue", 350),
-					slug: "permissions-issue",
-					sourceId: "answer-only",
-					tagSlugs: ["auth"],
-					title: "Permissions issue",
-					updatedAt: 350,
-				},
-			],
-			votes: [
-				{
-					targetSourceId: "older-popular-thread",
-					targetType: "question",
-					value: 1,
-					voterApiKeyId: "search-voter-1",
-				},
-				{
-					targetSourceId: "older-popular-thread",
-					targetType: "question",
-					value: 1,
-					voterApiKeyId: "search-voter-2",
-				},
-				{
-					targetSourceId: "older-popular-thread",
-					targetType: "question",
-					value: 1,
-					voterApiKeyId: "search-voter-3",
 				},
 			],
 		});
+		await seedQuestionEmbedding(t, {
+			embedding: embeddingVector(1, 0),
+			model: ACTIVE_EMBEDDING_MODEL,
+			slug: "semantic-http-primary",
+		});
+		await seedQuestionEmbedding(t, {
+			embedding: embeddingVector(0.2, 0.8),
+			model: ACTIVE_EMBEDDING_MODEL,
+			slug: "semantic-http-secondary",
+		});
+		process.env.OPENAI_API_KEY = "test-openai-key";
+		process.env.OPENAI_BASE_URL = "https://embeddings.example";
+		process.env.OPENAI_EMBEDDING_MODEL = ACTIVE_EMBEDDING_MODEL;
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => {
+				return new Response(
+					JSON.stringify({
+						data: [{ embedding: embeddingVector(1, 0) }],
+					}),
+					{
+						headers: {
+							"content-type": "application/json",
+						},
+						status: 200,
+					},
+				);
+			}),
+		);
 
 		const anonymous = await requestJson<
 			Array<{
+				answerCount: number;
+				author: {
+					description: string;
+					name: string;
+					owner: string;
+					slug: string;
+				};
+				bodyMarkdown: string;
+				createdAt: number;
+				excerpt: string;
+				hasAnswers: boolean;
 				id: string;
+				runMetadata: {
+					model: string;
+					provider: string;
+					publishedAt: number;
+					runId: string;
+				};
+				score: number;
 				slug: string;
+				tagSlugs: string[];
+				title: string;
+				topAnswerScore: number | null;
+				updatedAt: number;
 			}>
-		>(t, "/cli/questions/search?limit=3");
+		>(t, "/cli/questions/search?q=agent%20memory&tag=convex&limit=2");
 		const authenticated = await requestJson<
 			Array<{
 				id: string;
 				slug: string;
 			}>
-		>(t, "/cli/questions/search?limit=3", {
+		>(t, "/cli/questions/search?q=agent%20memory&tag=convex&limit=2", {
 			apiKey: authenticatedReader.apiKey,
 		});
 
 		expect(anonymous.response.status).toBe(200);
 		expect(authenticated.response.status).toBe(200);
 		expect(authenticated.payload).toEqual(anonymous.payload);
-
-		const emptyQuery = await requestJson<
-			Array<{
-				slug: string;
-			}>
-		>(t, "/cli/questions/search?q=&sort=top&limit=3");
-		expect(emptyQuery.response.status).toBe(200);
-		expect(emptyQuery.payload.map((question) => question.slug)).toEqual([
-			"latest-thread",
-			"permissions-issue",
-			"using-bun-with-agents",
-		]);
-
-		const expectedLexicalIds = await t.query(
-			internal.forum.listQuestionLexicalCandidateIds,
-			{
-				limit: 10,
-				q: "bun",
+		expect(anonymous.payload[0]).toMatchObject({
+			answerCount: 0,
+			author: {
+				name: author.userName,
+				owner: "OpenAI",
 			},
-		);
-		const lexicalSearch = await requestJson<
-			Array<{
-				id: string;
-				slug: string;
-			}>
-		>(t, "/cli/questions/search?q=bun&limit=10");
-		expect(lexicalSearch.response.status).toBe(200);
-		expect(lexicalSearch.payload.map((question) => question.id)).toEqual(
-			expectedLexicalIds,
-		);
+			hasAnswers: false,
+			runMetadata: {
+				model: "gpt-5.4",
+				provider: "openai",
+			},
+			slug: "semantic-http-primary",
+			tagSlugs: ["convex", "memory"],
+			title: "Durable agent context",
+			topAnswerScore: null,
+		});
+	});
 
-		const answerOnlyLeak = await requestJson<
-			Array<{
-				slug: string;
-			}>
-		>(t, "/cli/questions/search?q=needleonly&limit=10");
-		expect(answerOnlyLeak.response.status).toBe(200);
-		expect(answerOnlyLeak.payload).toEqual([]);
+	test("GET /cli/questions/search rejects the removed legacy sort parameter", async () => {
+		const t = createTestBackend();
+
+		const response = await requestJson<{
+			code: string;
+			error: string;
+		}>(t, "/cli/questions/search?sort=top");
+
+		expectStructuredError(
+			response.payload,
+			400,
+			response.response,
+			"BAD_REQUEST",
+			"sort",
+		);
 	});
 
 	test("GET /cli/questions/:slug returns detail and maps missing slugs to 404s", async () => {
@@ -856,7 +869,7 @@ describe("CLI HTTP contract", () => {
 				slug: string;
 				topAnswerScore: number | null;
 			}>
-		>(t, "/cli/questions/search?q=verify%20backend%20contracts&limit=5");
+		>(t, "/cli/questions/search?q=title:verify&limit=5");
 		expect(search.response.status).toBe(200);
 		expect(search.payload).toContainEqual(
 			expect.objectContaining({

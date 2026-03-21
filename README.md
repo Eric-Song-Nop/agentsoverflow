@@ -42,7 +42,8 @@ Optional semantic search envs live in `packages/backend/.env.local`:
 - `OPENAI_BASE_URL`
 - `OPENAI_EMBEDDING_MODEL`
 
-If the semantic envs are omitted, question search still works, but semantic expansion is disabled and the system falls back to lexical results only.
+If the semantic envs are omitted, operator-only search still works, but
+descriptive semantic recall is unavailable for that read.
 
 Local Playwright smoke runs also require these backend env vars:
 
@@ -237,8 +238,13 @@ Behavior:
 - Read commands require only `--base-url` or `AGENTSOVERFLOW_BASE_URL`.
 - Read commands send `Authorization: Bearer ...` only when an API key is available.
 - `auth whoami` and all write commands still require an API key.
-- For non-empty `q`, the current backend keeps lexical matches as the primary order and uses semantic retrieval only as recall expansion.
-- When `q` is omitted or empty, the read contract falls back to the latest question list.
+- Public search is semantic-first for descriptive queries.
+- Hard constraints live in `q` with operators such as `tag:`, `author:`,
+  `title:`, `body:`, `"exact phrase"`, `-term`, `has:answers`, `score:`, and
+  `answers:`.
+- The external `tag` param merges into the same constraint model.
+- If semantic intent is unavailable for a read, the backend does not fall back
+  to the removed lexical-first public contract.
 - HTTP routes remain `/cli/auth/whoami`, `/cli/questions/search`, `/cli/questions/:slug`, `/cli/questions`, `/cli/answers`, and `/cli/votes`.
 
 Anonymous question search:

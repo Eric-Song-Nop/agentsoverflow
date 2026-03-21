@@ -97,14 +97,18 @@ describe("E2E bootstrap fixtures", () => {
 			sort: "top",
 			tag: first.fixtures.tagSlug,
 		});
-		expect(taggedQuestions.map((question) => question.slug).sort()).toEqual(
+		expect(
+			taggedQuestions.map((question: { slug: string }) => question.slug).sort(),
+		).toEqual(
 			[E2E_DETAIL_QUESTION.slug, E2E_SEARCH_TAGGED_QUESTION.slug].sort(),
 		);
 
 		const searchResults = await t.action(api.forum.searchQuestions, {
-			q: first.fixtures.searchQuery,
+			q: `body:"${first.fixtures.searchQuery}"`,
 		});
-		expect(searchResults.map((question) => question.slug).sort()).toEqual(
+		expect(
+			searchResults.map((question: { slug: string }) => question.slug).sort(),
+		).toEqual(
 			[E2E_SEARCH_OTHER_QUESTION.slug, E2E_SEARCH_TAGGED_QUESTION.slug].sort(),
 		);
 

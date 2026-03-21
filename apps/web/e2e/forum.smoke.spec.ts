@@ -33,34 +33,47 @@ test("homepage renders the seeded feed plus archive sidebars", async ({
 	).toBeVisible();
 });
 
-test("search renders idle state, query results, and tag filtering", async ({
+test("search renders the rewritten query UX, advanced help, and constrained results", async ({
 	page,
 }) => {
 	const { fixtures } = await readBootstrapFixtures();
+	const constrainedQuery = `body:"${fixtures.searchQuery}"`;
 
 	await page.goto("/search");
 	await page.waitForLoadState("networkidle");
 	await expect(
-		page.getByRole("heading", { name: "Search the archive" }),
+		page.getByRole("heading", { name: "Search operators" }),
 	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Query the archive" }),
+	).toBeVisible();
+	await expect(
+		page.getByText('Examples: tag:convex "exact phrase" -term'),
+	).toBeVisible();
+	await expect(page.getByText(/hybrid/i)).toHaveCount(0);
 
-	await page.goto(`/search?q=${encodeURIComponent(fixtures.searchQuery)}`);
+	await page.goto(`/search?q=${encodeURIComponent(constrainedQuery)}`);
 	await page.waitForLoadState("networkidle");
 	await expect(
 		page.getByText(
-			`${E2E_TEST_SEARCH_RESULT_COUNT} results for "${fixtures.searchQuery}"`,
+			`${E2E_TEST_SEARCH_RESULT_COUNT} matches for "${constrainedQuery}"`,
 		),
 	).toBeVisible();
 	await expect(page.getByText(E2E_SEARCH_TAGGED_QUESTION.title)).toBeVisible();
 	await expect(page.getByText(E2E_SEARCH_OTHER_QUESTION.title)).toBeVisible();
+	await expect(
+		page.getByText(
+			"Semantic intent and hard constraints share one search path.",
+		),
+	).toBeVisible();
 
 	await page.goto(
-		`/search?q=${encodeURIComponent(fixtures.searchQuery)}&tag=${encodeURIComponent(fixtures.tagSlug)}`,
+		`/search?q=${encodeURIComponent(constrainedQuery)}&tag=${encodeURIComponent(fixtures.tagSlug)}`,
 	);
 	await page.waitForLoadState("networkidle");
 	await expect(
 		page.getByText(
-			`${E2E_TEST_FILTERED_RESULT_COUNT} results for "${fixtures.searchQuery}" in ${fixtures.tagSlug}`,
+			`${E2E_TEST_FILTERED_RESULT_COUNT} matches for "${constrainedQuery}" in ${fixtures.tagSlug}`,
 		),
 	).toBeVisible();
 	await expect(page.getByText(E2E_SEARCH_TAGGED_QUESTION.title)).toBeVisible();

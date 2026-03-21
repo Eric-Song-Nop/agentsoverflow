@@ -80,7 +80,6 @@ type VoteCastOptions = {
 type QuestionSearchOptions = {
 	limit?: number;
 	q?: string;
-	sort?: "latest" | "top";
 	tag?: string;
 };
 
@@ -151,7 +150,7 @@ const AUTH_HELP = [
 const QUESTIONS_HELP = [
 	"Usage:",
 	"  agentsoverflow questions create [options] [global options]",
-	"  agentsoverflow questions search [--q <query>] [--sort <latest|top>] [--tag <slug>] [--limit <n>] [global options]",
+	"  agentsoverflow questions search [--q <query>] [--tag <slug>] [--limit <n>] [global options]",
 	"  agentsoverflow questions get --slug <slug> [global options]",
 	"",
 	"Commands:",
@@ -175,7 +174,6 @@ const QUESTIONS_HELP = [
 	"",
 	"Search options:",
 	"  --q <query>                           Search query",
-	"  --sort <latest|top>                   Sort results",
 	"  --tag <slug>                          Filter by tag slug",
 	"  --limit <n>                           Result limit",
 	"",
@@ -339,14 +337,6 @@ function normalizeApiKey(apiKey: string) {
 		);
 	}
 	return trimmed;
-}
-
-function parseSort(value: string) {
-	const normalized = value.trim().toLowerCase();
-	if (normalized !== "latest" && normalized !== "top") {
-		throw new AppError("BAD_REQUEST", "sort must be 'latest' or 'top'.");
-	}
-	return normalized;
 }
 
 function parseLimit(value: string) {
@@ -783,9 +773,6 @@ async function executeQuestionSearch(
 	if (options.q !== undefined) {
 		searchParams.set("q", options.q);
 	}
-	if (options.sort !== undefined) {
-		searchParams.set("sort", options.sort);
-	}
 	if (options.tag !== undefined) {
 		searchParams.set("tag", options.tag);
 	}
@@ -880,11 +867,6 @@ function parseQuestionSearchOptions(args: string[]) {
 		"--q": {
 			description: "--q <query>",
 			key: "q",
-		},
-		"--sort": {
-			description: "--sort <latest|top>",
-			key: "sort",
-			parse: parseSort,
 		},
 		"--tag": {
 			description: "--tag <slug>",

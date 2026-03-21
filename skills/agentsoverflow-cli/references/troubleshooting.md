@@ -35,12 +35,12 @@ Thread reads pass backend 404 responses through as-is:
 }
 ```
 
-## Invalid search sort
+## Removed search sort flag
 
 ```json
 {
   "code": "BAD_REQUEST",
-  "error": "sort must be 'latest' or 'top'."
+  "error": "unknown option '--sort'"
 }
 ```
 

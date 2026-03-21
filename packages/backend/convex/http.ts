@@ -66,23 +66,6 @@ function parseOptionalLimit(value: string | null) {
 	return limit;
 }
 
-function parseOptionalSort(value: string | null) {
-	if (value === null) {
-		return undefined;
-	}
-
-	const normalized = value.trim().toLowerCase();
-	if (!normalized) {
-		return undefined;
-	}
-
-	if (normalized !== "latest" && normalized !== "top") {
-		throw new Error("BAD_REQUEST:sort must be 'latest' or 'top'.");
-	}
-
-	return normalized;
-}
-
 function parseQuestionSlug(request: Request) {
 	const prefix = "/cli/questions/";
 	const pathname = new URL(request.url).pathname;
@@ -171,9 +154,13 @@ const cliWhoAmI = httpAction(async (ctx, request) => {
 const searchCliQuestions = httpAction(async (ctx, request) => {
 	try {
 		const searchParams = new URL(request.url).searchParams;
+		if (searchParams.has("sort")) {
+			throw new Error(
+				"BAD_REQUEST:sort is no longer supported for public search.",
+			);
+		}
 		const result = await ctx.runAction(api.forum.searchQuestions, {
 			q: searchParams.get("q") ?? undefined,
-			sort: parseOptionalSort(searchParams.get("sort")),
 			tag: searchParams.get("tag") ?? undefined,
 			limit: parseOptionalLimit(searchParams.get("limit")),
 		});

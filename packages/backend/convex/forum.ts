@@ -10,6 +10,7 @@ import {
 	query,
 } from "./_generated/server";
 import { authComponent, createAuth } from "./auth";
+import { normalizeSearchText } from "./searchQuery";
 
 const feedSort = v.union(v.literal("latest"), v.literal("top"));
 const voteValue = v.union(v.literal(-1), v.literal(1));
@@ -130,18 +131,17 @@ function buildQuestionSearchText(args: {
 	tagSlugs: string[];
 	author: ReturnType<typeof normalizeAuthorSnapshot>;
 }) {
-	return [
-		args.title,
-		args.bodyMarkdown,
-		args.tagSlugs.join(" "),
-		args.author.name,
-		args.author.slug,
-		args.author.owner,
-		args.author.description,
-	]
-		.join(" ")
-		.trim()
-		.toLowerCase();
+	return normalizeSearchText(
+		[
+			args.title,
+			args.bodyMarkdown,
+			args.tagSlugs.join(" "),
+			args.author.name,
+			args.author.slug,
+			args.author.owner,
+			args.author.description,
+		].join(" "),
+	);
 }
 
 function normalizeRunMetadata(
@@ -274,22 +274,14 @@ async function listQuestionDocs(
 	args: {
 		sort: "latest" | "top";
 		tag?: string;
-		q?: string;
 		limit?: number;
 	},
 ) {
-	const normalizedQuery = normalizeOptionalString(args.q);
 	const normalizedTag = normalizeOptionalString(args.tag);
 	const limit = normalizeLimit(args.limit);
 
-	const candidateQuestions = normalizedQuery
-		? await ctx.db
-				.query("questions")
-				.withSearchIndex("search_searchText", (search) =>
-					search.search("searchText", normalizedQuery),
-				)
-				.collect()
-		: args.sort === "top"
+	const candidateQuestions =
+		args.sort === "top"
 			? await ctx.db
 					.query("questions")
 					.withIndex("by_score")
@@ -313,7 +305,6 @@ export const listQuestions = query({
 	args: {
 		sort: v.optional(feedSort),
 		tag: v.optional(v.string()),
-		q: v.optional(v.string()),
 		limit: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
@@ -323,11 +314,10 @@ export const listQuestions = query({
 	},
 });
 
-export const listQuestionSummariesLexical = internalQuery({
+export const listQuestionSummaries = internalQuery({
 	args: {
 		sort: v.optional(feedSort),
 		tag: v.optional(v.string()),
-		q: v.optional(v.string()),
 		limit: v.optional(v.number()),
 	},
 	handler: async (ctx, args): Promise<QuestionSummary[]> => {
@@ -337,35 +327,16 @@ export const listQuestionSummariesLexical = internalQuery({
 	},
 });
 
-export const listQuestionLexicalCandidateIds = internalQuery({
-	args: {
-		q: v.string(),
-		limit: v.optional(v.number()),
-	},
-	handler: async (ctx, args) => {
-		const normalizedQuery = normalizeRequiredString(args.q, "q").toLowerCase();
-		const limit = Math.min(Math.max(args.limit ?? 50, 1), 128);
-
-		const questions = await ctx.db
-			.query("questions")
-			.withSearchIndex("search_searchText", (search) =>
-				search.search("searchText", normalizedQuery),
-			)
-			.collect();
-
-		return questions.slice(0, limit).map((question) => question._id);
-	},
-});
-
-export const getQuestionSummariesByIds = internalQuery({
-	args: {
-		ids: v.array(v.id("questions")),
-	},
-	handler: async (ctx, args): Promise<QuestionSummary[]> => {
-		const questions = await Promise.all(args.ids.map((id) => ctx.db.get(id)));
-		return questions
-			.filter((question): question is Doc<"questions"> => question !== null)
-			.map((question) => mapQuestionSummary(question));
+export const listSearchDocuments = internalQuery({
+	args: {},
+	handler: async (ctx) => {
+		const questions = await ctx.db.query("questions").collect();
+		return questions.map((question) => ({
+			...mapQuestionSummary(question),
+			searchText: question.searchText,
+			semanticEmbedding: question.semanticEmbedding ?? null,
+			semanticEmbeddingModel: question.semanticEmbeddingModel ?? null,
+		}));
 	},
 });
 
@@ -417,13 +388,12 @@ export const listQuestionSemanticStatus = internalQuery({
 
 export const searchQuestions = action({
 	args: {
-		sort: v.optional(feedSort),
 		tag: v.optional(v.string()),
 		q: v.optional(v.string()),
 		limit: v.optional(v.number()),
 	},
 	handler: async (ctx, args): Promise<QuestionSummary[]> => {
-		return await ctx.runAction(internal.semantic.hybridSearchQuestions, args);
+		return await ctx.runAction(internal.semantic.searchQuestions, args);
 	},
 });
 

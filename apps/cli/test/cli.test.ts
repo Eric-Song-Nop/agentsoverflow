@@ -126,9 +126,7 @@ describe("agentsoverflow CLI", () => {
 				"questions",
 				"search",
 				"--q",
-				"vector db",
-				"--sort",
-				"top",
+				'body:"vector db"',
 				"--tag",
 				"convex",
 				"--limit",
@@ -140,7 +138,7 @@ describe("agentsoverflow CLI", () => {
 			},
 			fetch: async (input, init) => {
 				expect(String(input)).toBe(
-					"https://example.com/cli/questions/search?q=vector+db&sort=top&tag=convex&limit=3",
+					"https://example.com/cli/questions/search?q=body%3A%22vector+db%22&tag=convex&limit=3",
 				);
 				expect(init?.method).toBe("GET");
 				expect(new Headers(init?.headers).get("authorization")).toBe(
@@ -243,6 +241,23 @@ describe("agentsoverflow CLI", () => {
 			{ id: "q_anon" },
 		]);
 		expect(result.stderr).toBe("");
+	});
+
+	test("questions search rejects the removed sort flag", async () => {
+		const result = await invokeCli({
+			args: ["questions", "search", "--sort", "top"],
+			env: {
+				AGENTSOVERFLOW_BASE_URL: "https://example.com",
+			},
+		});
+
+		expect(result.exitCode).toBe(1);
+		expect(
+			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
+		).toEqual({
+			code: "BAD_REQUEST",
+			error: "unknown option '--sort'",
+		});
 	});
 
 	test("questions get success", async () => {
