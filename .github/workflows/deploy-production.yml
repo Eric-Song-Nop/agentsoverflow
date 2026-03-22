@@ -27,14 +27,30 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
+    outputs:
+      site_url: ${{ steps.production_metadata.outputs.site_url }}
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: production
+      url: ${{ vars.SITE_URL }}
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Capture production metadata
+        id: production_metadata
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "SITE_URL is not configured for the production environment." >&2
+            exit 1
+          fi
+
+          echo "site_url=$SITE_URL" >> "$GITHUB_OUTPUT"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -66,9 +82,13 @@ jobs:
 
       - name: Sync Convex production environment
         env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-          GITHUB_CLIENT_ID: ${{ vars.GITHUB_CLIENT_ID }}
-          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
+          OPENAI_EMBEDDING_MODEL: ${{ vars.OPENAI_EMBEDDING_MODEL }}
           SITE_URL: ${{ vars.SITE_URL }}
         run: |
           convex_env_file="$(mktemp)"
@@ -76,8 +96,18 @@ jobs:
 
           {
             printf 'SITE_URL=%s\n' "$SITE_URL"
+            printf 'BETTER_AUTH_SECRET=%s\n' "$BETTER_AUTH_SECRET"
             printf 'GITHUB_CLIENT_ID=%s\n' "$GITHUB_CLIENT_ID"
             printf 'GITHUB_CLIENT_SECRET=%s\n' "$GITHUB_CLIENT_SECRET"
+            if [ -n "$OPENAI_API_KEY" ]; then
+              printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY"
+            fi
+            if [ -n "$OPENAI_BASE_URL" ]; then
+              printf 'OPENAI_BASE_URL=%s\n' "$OPENAI_BASE_URL"
+            fi
+            if [ -n "$OPENAI_EMBEDDING_MODEL" ]; then
+              printf 'OPENAI_EMBEDDING_MODEL=%s\n' "$OPENAI_EMBEDDING_MODEL"
+            fi
           } > "$convex_env_file"
 
           pnpm --filter @workspace/backend exec convex env set --prod --from-file "$convex_env_file"
@@ -85,7 +115,7 @@ jobs:
       - name: Deploy Convex production
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: pnpm --filter @workspace/backend exec convex deploy --prod
+        run: pnpm --filter @workspace/backend exec convex deploy -y
 
       - name: Build web app
         env:
@@ -97,8 +127,8 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          GITHUB_CLIENT_ID: ${{ vars.GITHUB_CLIENT_ID }}
-          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
           SITE_URL: ${{ vars.SITE_URL }}
           VITE_CONVEX_SITE_URL: ${{ vars.VITE_CONVEX_SITE_URL }}
           VITE_CONVEX_URL: ${{ vars.VITE_CONVEX_URL }}
@@ -107,11 +137,96 @@ jobs:
           trap 'rm -f "$worker_secrets_file"' EXIT
 
           {
-            printf 'SITE_URL=%s\n' "$SITE_URL"
             printf 'GITHUB_CLIENT_ID=%s\n' "$GITHUB_CLIENT_ID"
             printf 'GITHUB_CLIENT_SECRET=%s\n' "$GITHUB_CLIENT_SECRET"
-            printf 'VITE_CONVEX_URL=%s\n' "$VITE_CONVEX_URL"
-            printf 'VITE_CONVEX_SITE_URL=%s\n' "$VITE_CONVEX_SITE_URL"
           } > "$worker_secrets_file"
 
-          pnpm --filter web exec wrangler deploy --config wrangler.jsonc --secrets-file "$worker_secrets_file"
+          pnpm --filter web exec wrangler deploy \
+            --config dist/server/wrangler.json \
+            --var "SITE_URL:$SITE_URL" \
+            --var "VITE_CONVEX_URL:$VITE_CONVEX_URL" \
+            --var "VITE_CONVEX_SITE_URL:$VITE_CONVEX_SITE_URL" \
+            --secrets-file "$worker_secrets_file"
+
+  smoke:
+    needs:
+      - deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE_URL: ${{ needs.deploy.outputs.site_url }}
+
+    steps:
+      - name: Wait for the production URL to answer
+        run: |
+          site_url="${SITE_URL%/}"
+
+          curl \
+            --fail \
+            --show-error \
+            --silent \
+            --retry 6 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --max-time 20 \
+            "$site_url/" \
+            >/dev/null
+
+      - name: Smoke check public pages and auth redirect
+        run: |
+          site_url="${SITE_URL%/}"
+          home_body="$(mktemp)"
+          login_body="$(mktemp)"
+          dashboard_headers="$(mktemp)"
+
+          trap 'rm -f "$home_body" "$login_body" "$dashboard_headers"' EXIT
+
+          curl \
+            --fail \
+            --show-error \
+            --silent \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --max-time 20 \
+            --output "$home_body" \
+            "$site_url/"
+
+          grep -Eq 'All Questions|Search all questions' "$home_body"
+
+          curl \
+            --fail \
+            --show-error \
+            --silent \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --max-time 20 \
+            --output "$login_body" \
+            "$site_url/login"
+
+          grep -q 'Sign in with GitHub' "$login_body"
+
+          curl \
+            --show-error \
+            --silent \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --max-time 20 \
+            --output /dev/null \
+            --dump-header "$dashboard_headers" \
+            "$site_url/dashboard"
+
+          grep -Eq '^HTTP/.* 3[0-9]{2}' "$dashboard_headers"
+
+          dashboard_location="$(awk 'BEGIN { IGNORECASE = 1 } /^location:/ { print $2 }' "$dashboard_headers" | tr -d '\r')"
+
+          case "$dashboard_location" in
+            /login|/login?*|*/login|*/login?*)
+              ;;
+            *)
+              echo "Expected /dashboard to redirect to /login, got: ${dashboard_location:-<empty>}" >&2
+              exit 1
+              ;;
+          esac

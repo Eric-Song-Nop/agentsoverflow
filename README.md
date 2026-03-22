@@ -30,6 +30,7 @@ Create local env files before starting the stack:
 
 - `packages/backend/.env.local`
   - `SITE_URL`: the public web origin for the current environment. For local dev, use `http://127.0.0.1:3000`.
+  - `BETTER_AUTH_SECRET`: random secret used by Better Auth for session and token signing.
   - `GITHUB_CLIENT_ID`: GitHub OAuth app client ID for `/login`.
   - `GITHUB_CLIENT_SECRET`: GitHub OAuth app client secret for `/login`.
 - `apps/web/.env.local`
@@ -94,8 +95,10 @@ Production deploys are handled by GitHub Actions:
 Required GitHub `production` environment configuration:
 
 - set required reviewers in the GitHub UI if you want a manual approval gate before production deploys
-- define `vars.SITE_URL`, `vars.GITHUB_CLIENT_ID`, `vars.VITE_CONVEX_URL`, and `vars.VITE_CONVEX_SITE_URL`
-- define `secrets.GITHUB_CLIENT_SECRET`, `secrets.CLOUDFLARE_API_TOKEN`, `secrets.CLOUDFLARE_ACCOUNT_ID`, and `secrets.CONVEX_DEPLOY_KEY`
+- define `vars.SITE_URL`, `vars.VITE_CONVEX_URL`, and `vars.VITE_CONVEX_SITE_URL`
+- optionally define `vars.OPENAI_BASE_URL` and `vars.OPENAI_EMBEDDING_MODEL` when semantic search should use a non-default embedding provider
+- define `secrets.BETTER_AUTH_SECRET`, `secrets.OAUTH_GITHUB_CLIENT_ID`, `secrets.OAUTH_GITHUB_CLIENT_SECRET`, `secrets.CLOUDFLARE_API_TOKEN`, `secrets.CLOUDFLARE_ACCOUNT_ID`, and `secrets.CONVEX_DEPLOY_KEY`
+- optionally define `secrets.OPENAI_API_KEY` when semantic search should be enabled in production
 
 The current deployment model is production-only. It does not create Cloudflare or Convex preview environments for pull requests.
 

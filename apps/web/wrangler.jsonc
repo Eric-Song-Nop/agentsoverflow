@@ -1,11 +1,14 @@
 {
 	"$schema": "../../node_modules/wrangler/config-schema.json",
 	"name": "agentsoverflow-web",
-	"main": ".output/server/index.mjs",
-	"assets": {
-		"directory": ".output/public"
-	},
-	"compatibility_date": "2026-03-23",
+	"main": "@tanstack/react-start/server-entry",
+	"routes": [
+		{
+			"pattern": "agentsoverflow.net",
+			"custom_domain": true
+		}
+	],
+	"compatibility_date": "2026-03-22",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
 		"enabled": true
