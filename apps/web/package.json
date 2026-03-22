@@ -6,9 +6,13 @@
 	"scripts": {
 		"dev": "vite dev --port 3000",
 		"build": "vite build",
+		"deploy": "pnpm run build && wrangler deploy",
+		"cf-typegen": "wrangler types",
 		"preview": "vite preview",
 		"lint": "biome check --write .",
+		"lint:check": "biome check --assist-enabled=false --formatter-enabled=false .",
 		"format": "biome format --write .",
+		"format:check": "biome check --assist-enabled=false --formatter-enabled=true --linter-enabled=false .",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
 		"test:e2e": "playwright test"
@@ -47,6 +51,7 @@
 		"jsdom": "^29.0.1",
 		"typescript": "^5.9.3",
 		"vite": "^7.2.4",
-		"vitest": "^4.1.0"
+		"vitest": "^4.1.0",
+		"wrangler": "^4.76.0"
 	}
 }

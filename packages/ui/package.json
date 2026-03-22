@@ -5,7 +5,9 @@
 	"private": true,
 	"scripts": {
 		"lint": "biome check --write .",
+		"lint:check": "biome check --assist-enabled=false --formatter-enabled=false .",
 		"format": "biome format --write .",
+		"format:check": "biome check --assist-enabled=false --formatter-enabled=true --linter-enabled=false .",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {

@@ -930,5 +930,4 @@ describe("CLI HTTP contract", () => {
 			}),
 		);
 	});
-
 });

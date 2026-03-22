@@ -12,9 +12,16 @@
 		"compile": "bun run ./scripts/build.ts compile-host",
 		"dev": "bun run --watch ./src/index.ts",
 		"format": "biome format --write .",
+		"format:check": "biome check --assist-enabled=false --formatter-enabled=true --linter-enabled=false .",
 		"lint": "biome check --write .",
+		"lint:check": "biome check --assist-enabled=false --formatter-enabled=false .",
 		"release": "bun run ./scripts/build.ts release",
 		"test": "bun test",
+		"test:green": "bun test",
+		"test:red": "bun test ./test/cli.contract.test.ts ./test/cli.skill.test.ts",
+		"test:red:watch": "bun test --watch ./test/cli.contract.test.ts ./test/cli.skill.test.ts",
+		"test:skill": "bun test ./test/cli.skill.test.ts",
+		"test:smoke": "bun test ./test/cli.smoke.test.ts",
 		"typecheck": "tsc --project tsconfig.json --noEmit"
 	},
 	"devDependencies": {

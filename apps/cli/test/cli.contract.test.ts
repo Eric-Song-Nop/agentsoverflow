@@ -1,78 +1,22 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { compileExecutable, getHostReleaseTarget } from "../scripts/build";
-import { type AppErrorCode, runCli } from "../src/index";
+import { describe, expect, test } from "bun:test";
+import { CLI_CONTRACT, CLI_ERROR_MESSAGES } from "../src/contract";
+import type { AppErrorCode } from "../src/index";
+import { createTempDir, invokeCli, jsonResponse, parseJson } from "./helpers";
 
-type FetchLike = (
-	input: URL | RequestInfo,
-	init?: BunFetchRequestInit | RequestInit,
-) => Promise<Response>;
+describe("agentsoverflow CLI contract", () => {
+	test("root help lists every supported command", async () => {
+		const result = await invokeCli({
+			args: ["--help"],
+			env: {},
+		});
 
-type InvocationResult = {
-	exitCode: number;
-	requests: Array<{
-		body: unknown;
-		headers: Headers;
-		method: string;
-		url: string;
-	}>;
-	stderr: string;
-	stdout: string;
-};
-
-async function invokeCli(options: {
-	args: string[];
-	cwd?: string;
-	env?: NodeJS.ProcessEnv;
-	fetch?: FetchLike;
-}) {
-	let stderr = "";
-	let stdout = "";
-	const requests: InvocationResult["requests"] = [];
-
-	const exitCode = await runCli({
-		args: options.args,
-		cwd: options.cwd,
-		env: options.env ?? {},
-		fetch:
-			options.fetch ??
-			(async (input, init) => {
-				requests.push({
-					body: init?.body ? JSON.parse(String(init.body)) : undefined,
-					headers: new Headers(init?.headers),
-					method: init?.method ?? "GET",
-					url: String(input),
-				});
-				return new Response(JSON.stringify({ ok: true }), {
-					headers: {
-						"content-type": "application/json",
-					},
-					status: 200,
-				});
-			}),
-		stderr: (value) => {
-			stderr += value;
-		},
-		stdout: (value) => {
-			stdout += value;
-		},
+		expect(result.exitCode).toBe(0);
+		for (const command of CLI_CONTRACT.supportedCommands) {
+			expect(result.stdout).toContain(command);
+		}
+		expect(result.stderr).toBe("");
 	});
 
-	return {
-		exitCode,
-		requests,
-		stderr,
-		stdout,
-	} satisfies InvocationResult;
-}
-
-function parseJson<TValue>(text: string) {
-	return JSON.parse(text) as TValue;
-}
-
-describe("agentsoverflow CLI", () => {
 	test("auth whoami success", async () => {
 		const result = await invokeCli({
 			args: ["auth", "whoami"],
@@ -86,20 +30,12 @@ describe("agentsoverflow CLI", () => {
 				expect(new Headers(init?.headers).get("authorization")).toBe(
 					"Bearer aso_test",
 				);
-				return new Response(
-					JSON.stringify({
-						apiKeyId: "key_123",
-						user: {
-							id: "user_123",
-						},
-					}),
-					{
-						headers: {
-							"content-type": "application/json",
-						},
-						status: 200,
+				return jsonResponse({
+					apiKeyId: "key_123",
+					user: {
+						id: "user_123",
 					},
-				);
+				});
 			},
 		});
 
@@ -144,42 +80,34 @@ describe("agentsoverflow CLI", () => {
 				expect(new Headers(init?.headers).get("authorization")).toBe(
 					"Bearer aso_test",
 				);
-				return new Response(
-					JSON.stringify([
-						{
-							answerCount: 2,
-							author: {
-								description: "",
-								name: "Codex",
-								owner: "OpenAI",
-								slug: "codex",
-							},
-							bodyMarkdown: "Body",
-							createdAt: 1742169600000,
-							excerpt: "Body",
-							hasAnswers: true,
-							id: "q_123",
-							runMetadata: {
-								model: "gpt-5.4",
-								provider: "openai",
-								publishedAt: 1742169600000,
-								runId: "run_123",
-							},
-							score: 7,
-							slug: "vector-db",
-							tagSlugs: ["convex"],
-							title: "Vector DB question",
-							topAnswerScore: 4,
-							updatedAt: 1742169601000,
-						},
-					]),
+				return jsonResponse([
 					{
-						headers: {
-							"content-type": "application/json",
+						answerCount: 2,
+						author: {
+							description: "",
+							name: "Codex",
+							owner: "OpenAI",
+							slug: "codex",
 						},
-						status: 200,
+						bodyMarkdown: "Body",
+						createdAt: 1742169600000,
+						excerpt: "Body",
+						hasAnswers: true,
+						id: "q_123",
+						runMetadata: {
+							model: "gpt-5.4",
+							provider: "openai",
+							publishedAt: 1742169600000,
+							runId: "run_123",
+						},
+						score: 7,
+						slug: "vector-db",
+						tagSlugs: ["convex"],
+						title: "Vector DB question",
+						topAnswerScore: 4,
+						updatedAt: 1742169601000,
 					},
-				);
+				]);
 			},
 		});
 
@@ -227,12 +155,7 @@ describe("agentsoverflow CLI", () => {
 				);
 				expect(init?.method).toBe("GET");
 				expect(new Headers(init?.headers).get("authorization")).toBeNull();
-				return new Response(JSON.stringify([{ id: "q_anon" }]), {
-					headers: {
-						"content-type": "application/json",
-					},
-					status: 200,
-				});
+				return jsonResponse([{ id: "q_anon" }]);
 			},
 		});
 
@@ -256,7 +179,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error: "unknown option '--sort'",
+			error: CLI_ERROR_MESSAGES.removedSortFlag,
 		});
 	});
 
@@ -275,60 +198,52 @@ describe("agentsoverflow CLI", () => {
 				expect(new Headers(init?.headers).get("authorization")).toBe(
 					"Bearer aso_test",
 				);
-				return new Response(
-					JSON.stringify({
-						answers: [
-							{
-								author: {
-									description: "",
-									name: "Codex",
-									owner: "OpenAI",
-									slug: "codex",
-								},
-								bodyMarkdown: "Try X.",
-								createdAt: 1742169600001,
-								id: "a_123",
-								runMetadata: {
-									model: "gpt-5.4",
-									provider: "openai",
-									publishedAt: 1742169600001,
-									runId: "run_answer",
-								},
-								score: 3,
-								updatedAt: 1742169600002,
+				return jsonResponse({
+					answers: [
+						{
+							author: {
+								description: "",
+								name: "Codex",
+								owner: "OpenAI",
+								slug: "codex",
 							},
-						],
-						author: {
-							description: "",
-							name: "CLI Agent",
-							owner: "OpenAI",
-							slug: "cli-agent",
+							bodyMarkdown: "Try X.",
+							createdAt: 1742169600001,
+							id: "a_123",
+							runMetadata: {
+								model: "gpt-5.4",
+								provider: "openai",
+								publishedAt: 1742169600001,
+								runId: "run_answer",
+							},
+							score: 3,
+							updatedAt: 1742169600002,
 						},
-						bodyMarkdown: "Question body",
-						createdAt: 1742169600000,
-						excerpt: "Question body",
-						hasAnswers: true,
-						id: "q_123",
-						runMetadata: {
-							model: "gpt-5.4",
-							provider: "openai",
-							publishedAt: 1742169600000,
-							runId: "run_question",
-						},
-						score: 5,
-						slug: "hello-world",
-						tagSlugs: ["cli"],
-						title: "Hello World",
-						topAnswerScore: 3,
-						updatedAt: 1742169600010,
-					}),
-					{
-						headers: {
-							"content-type": "application/json",
-						},
-						status: 200,
+					],
+					author: {
+						description: "",
+						name: "CLI Agent",
+						owner: "OpenAI",
+						slug: "cli-agent",
 					},
-				);
+					bodyMarkdown: "Question body",
+					createdAt: 1742169600000,
+					excerpt: "Question body",
+					hasAnswers: true,
+					id: "q_123",
+					runMetadata: {
+						model: "gpt-5.4",
+						provider: "openai",
+						publishedAt: 1742169600000,
+						runId: "run_question",
+					},
+					score: 5,
+					slug: "hello-world",
+					tagSlugs: ["cli"],
+					title: "Hello World",
+					topAnswerScore: 3,
+					updatedAt: 1742169600010,
+				});
 			},
 		});
 
@@ -389,15 +304,12 @@ describe("agentsoverflow CLI", () => {
 				AGENTSOVERFLOW_BASE_URL: "https://example.com",
 			},
 			fetch: async () =>
-				new Response(
-					JSON.stringify({
-						code: "NOT_FOUND",
-						error: "Question not found.",
-					}),
+				jsonResponse(
 					{
-						headers: {
-							"content-type": "application/json",
-						},
+						code: "NOT_FOUND",
+						error: CLI_ERROR_MESSAGES.questionNotFound,
+					},
+					{
 						status: 404,
 					},
 				),
@@ -408,86 +320,85 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "NOT_FOUND",
-			error: "Question not found.",
+			error: CLI_ERROR_MESSAGES.questionNotFound,
 		});
 	});
 
 	test("questions create success with repeated tags and body file", async () => {
-		const tempDir = await mkdtemp(join(tmpdir(), "agentsoverflow-cli-"));
-		const bodyPath = join(tempDir, "question.md");
-		await writeFile(bodyPath, "# Hello from file\n");
+		const tempDir = await createTempDir({
+			"question.md": "# Hello from file\n",
+		});
 
-		const result = await invokeCli({
-			args: [
-				"questions",
-				"create",
-				"--title",
-				"My question",
-				"--body-file",
-				"question.md",
-				"--tag",
-				"bun",
-				"--tag",
-				"cli",
-				"--author-name",
-				"CLI Agent",
-				"--author-owner",
-				"OpenAI",
-				"--author-slug",
-				"cli-agent",
-				"--author-description",
-				"Helpful",
-				"--run-provider",
-				"openai",
-				"--run-model",
-				"gpt-5.4",
-				"--run-id",
-				"run_123",
-				"--run-published-at",
-				"1742169600000",
-			],
-			cwd: tempDir,
-			env: {
-				AGENTSOVERFLOW_API_KEY: "aso_test",
-				AGENTSOVERFLOW_BASE_URL: "https://example.com",
-			},
-			fetch: async (_input, init) => {
-				expect(JSON.parse(String(init?.body))).toEqual({
-					author: {
-						description: "Helpful",
-						name: "CLI Agent",
-						owner: "OpenAI",
-						slug: "cli-agent",
-					},
-					bodyMarkdown: "# Hello from file\n",
-					runMetadata: {
-						model: "gpt-5.4",
-						provider: "openai",
-						publishedAt: 1742169600000,
-						runId: "run_123",
-					},
-					tagSlugs: ["bun", "cli"],
-					title: "My question",
-				});
-				return new Response(
-					JSON.stringify({ id: "q_123", slug: "my-question" }),
-					{
-						headers: {
-							"content-type": "application/json",
+		try {
+			const result = await invokeCli({
+				args: [
+					"questions",
+					"create",
+					"--title",
+					"My question",
+					"--body-file",
+					"question.md",
+					"--tag",
+					"bun",
+					"--tag",
+					"cli",
+					"--author-name",
+					"CLI Agent",
+					"--author-owner",
+					"OpenAI",
+					"--author-slug",
+					"cli-agent",
+					"--author-description",
+					"Helpful",
+					"--run-provider",
+					"openai",
+					"--run-model",
+					"gpt-5.4",
+					"--run-id",
+					"run_123",
+					"--run-published-at",
+					"1742169600000",
+				],
+				cwd: tempDir.cwd,
+				env: {
+					AGENTSOVERFLOW_API_KEY: "aso_test",
+					AGENTSOVERFLOW_BASE_URL: "https://example.com",
+				},
+				fetch: async (_input, init) => {
+					expect(JSON.parse(String(init?.body))).toEqual({
+						author: {
+							description: "Helpful",
+							name: "CLI Agent",
+							owner: "OpenAI",
+							slug: "cli-agent",
 						},
-						status: 201,
-					},
-				);
-			},
-		});
+						bodyMarkdown: "# Hello from file\n",
+						runMetadata: {
+							model: "gpt-5.4",
+							provider: "openai",
+							publishedAt: 1742169600000,
+							runId: "run_123",
+						},
+						tagSlugs: ["bun", "cli"],
+						title: "My question",
+					});
+					return jsonResponse(
+						{ id: "q_123", slug: "my-question" },
+						{
+							status: 201,
+						},
+					);
+				},
+			});
 
-		expect(result.exitCode).toBe(0);
-		expect(parseJson<{ id: string; slug: string }>(result.stdout)).toEqual({
-			id: "q_123",
-			slug: "my-question",
-		});
-
-		await rm(tempDir, { force: true, recursive: true });
+			expect(result.exitCode).toBe(0);
+			expect(parseJson<{ id: string; slug: string }>(result.stdout)).toEqual({
+				id: "q_123",
+				slug: "my-question",
+			});
+		} finally {
+			await tempDir.cleanup();
+		}
 	});
 
 	test("questions create fails when body is missing", async () => {
@@ -513,7 +424,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error: "One of --body-markdown or --body-file is required.",
+			error: CLI_ERROR_MESSAGES.bodyInputRequired,
 		});
 	});
 
@@ -544,7 +455,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error: "Pass exactly one of --body-markdown or --body-file.",
+			error: CLI_ERROR_MESSAGES.bodyInputXor,
 		});
 	});
 
@@ -575,8 +486,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error:
-				"run metadata must include --run-provider, --run-model, --run-id, and --run-published-at together.",
+			error: CLI_ERROR_MESSAGES.partialRunMetadata,
 		});
 	});
 
@@ -609,12 +519,9 @@ describe("agentsoverflow CLI", () => {
 					bodyMarkdown: "Answer body",
 					questionId: "q_123",
 				});
-				return new Response(
-					JSON.stringify({ id: "a_123", questionId: "q_123" }),
+				return jsonResponse(
+					{ id: "a_123", questionId: "q_123" },
 					{
-						headers: {
-							"content-type": "application/json",
-						},
 						status: 201,
 					},
 				);
@@ -657,8 +564,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error:
-				"run metadata must include --run-provider, --run-model, --run-id, and --run-published-at together.",
+			error: CLI_ERROR_MESSAGES.partialRunMetadata,
 		});
 	});
 
@@ -684,20 +590,12 @@ describe("agentsoverflow CLI", () => {
 					targetType: "answer",
 					value: -1,
 				});
-				return new Response(
-					JSON.stringify({
-						score: 2,
-						targetId: "a_123",
-						targetType: "answer",
-						vote: -1,
-					}),
-					{
-						headers: {
-							"content-type": "application/json",
-						},
-						status: 200,
-					},
-				);
+				return jsonResponse({
+					score: 2,
+					targetId: "a_123",
+					targetType: "answer",
+					vote: -1,
+				});
 			},
 		});
 
@@ -740,7 +638,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error: "target-type must be question or answer.",
+			error: CLI_ERROR_MESSAGES.invalidVoteTarget,
 		});
 	});
 
@@ -767,7 +665,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error: "value must be 1 or -1.",
+			error: CLI_ERROR_MESSAGES.invalidVoteValue,
 		});
 	});
 
@@ -784,7 +682,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error: "Missing API key. Pass --api-key or set AGENTSOVERFLOW_API_KEY.",
+			error: CLI_ERROR_MESSAGES.missingApiKey,
 		});
 	});
 
@@ -799,8 +697,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error:
-				"Missing base URL. Pass --base-url or set AGENTSOVERFLOW_BASE_URL.",
+			error: CLI_ERROR_MESSAGES.missingBaseUrl,
 		});
 	});
 
@@ -828,7 +725,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error: "Missing API key. Pass --api-key or set AGENTSOVERFLOW_API_KEY.",
+			error: CLI_ERROR_MESSAGES.missingApiKey,
 		});
 	});
 
@@ -845,8 +742,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "BAD_REQUEST",
-			error:
-				"Missing base URL. Pass --base-url or set AGENTSOVERFLOW_BASE_URL.",
+			error: CLI_ERROR_MESSAGES.missingBaseUrl,
 		});
 	});
 
@@ -867,8 +763,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "NETWORK_ERROR",
-			error:
-				"Network request failed. Check --base-url and server availability.",
+			error: CLI_ERROR_MESSAGES.networkFailure,
 		});
 	});
 
@@ -890,132 +785,7 @@ describe("agentsoverflow CLI", () => {
 			parseJson<{ code: AppErrorCode; error: string }>(result.stderr),
 		).toEqual({
 			code: "INTERNAL_SERVER_ERROR",
-			error: "Server returned a non-JSON response.",
+			error: CLI_ERROR_MESSAGES.nonJsonResponse,
 		});
-	});
-});
-
-let compiledBinaryPath = "";
-let smokeServer: Bun.Server<undefined> | null = null;
-let smokeServerUrl = "";
-let smokeTempDir = "";
-
-beforeAll(async () => {
-	smokeTempDir = await mkdtemp(join(tmpdir(), "agentsoverflow-cli-binary-"));
-	compiledBinaryPath = await compileExecutable(
-		getHostReleaseTarget(),
-		join(
-			smokeTempDir,
-			`agentsoverflow${process.platform === "win32" ? ".exe" : ""}`,
-		),
-	);
-
-	smokeServer = Bun.serve({
-		fetch(request) {
-			const url = new URL(request.url);
-			if (url.pathname === "/cli/auth/whoami") {
-				return new Response(
-					JSON.stringify({
-						apiKeyId: "key_binary",
-						user: {
-							id: "user_binary",
-						},
-					}),
-					{
-						headers: {
-							"content-type": "application/json",
-						},
-						status: 200,
-					},
-				);
-			}
-
-			if (url.pathname === "/questions/search") {
-				return new Response(
-					JSON.stringify([
-						{
-							id: "q_binary",
-							slug: "bun-search",
-						},
-					]),
-					{
-						headers: {
-							"content-type": "application/json",
-						},
-						status: 200,
-					},
-				);
-			}
-
-			return new Response("Not Found", { status: 404 });
-		},
-		port: 0,
-	});
-	smokeServerUrl = `http://127.0.0.1:${smokeServer.port}`;
-});
-
-afterAll(async () => {
-	smokeServer?.stop(true);
-	if (smokeTempDir) {
-		await rm(smokeTempDir, { force: true, recursive: true });
-	}
-});
-
-describe("compiled binary smoke test", () => {
-	test("compiled binary serves help and mocked whoami flow", async () => {
-		const helpResult = Bun.spawnSync({
-			cmd: [compiledBinaryPath, "--help"],
-			stderr: "pipe",
-			stdout: "pipe",
-		});
-
-		expect(helpResult.exitCode).toBe(0);
-		expect(helpResult.stdout.toString()).toContain("Agentsoverflow CLI");
-
-		const whoAmIResult = Bun.spawnSync({
-			cmd: [
-				compiledBinaryPath,
-				"auth",
-				"whoami",
-				"--base-url",
-				smokeServerUrl,
-				"--api-key",
-				"aso_binary",
-			],
-			stderr: "pipe",
-			stdout: "pipe",
-		});
-
-		expect(whoAmIResult.exitCode).toBe(0);
-		expect(JSON.parse(whoAmIResult.stdout.toString())).toEqual({
-			apiKeyId: "key_binary",
-			user: {
-				id: "user_binary",
-			},
-		});
-		expect(whoAmIResult.stderr.toString()).toBe("");
-
-		const searchResult = Bun.spawnSync({
-			cmd: [
-				compiledBinaryPath,
-				"questions",
-				"search",
-				"--base-url",
-				smokeServerUrl,
-				"--q",
-				"bun",
-			],
-			stderr: "pipe",
-			stdout: "pipe",
-		});
-
-		expect(searchResult.exitCode).toBe(0);
-		expect(JSON.parse(searchResult.stdout.toString())).toEqual([
-			{
-				id: "q_binary",
-				slug: "bun-search",
-			},
-		]);
-		expect(searchResult.stderr.toString()).toBe("");
 	});
 });

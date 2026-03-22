@@ -8,7 +8,9 @@
 		"codegen": "convex codegen",
 		"build": "tsc --noEmit",
 		"lint": "biome check --write .",
+		"lint:check": "biome check --assist-enabled=false --formatter-enabled=false .",
 		"format": "biome format --write .",
+		"format:check": "biome check --assist-enabled=false --formatter-enabled=true --linter-enabled=false .",
 		"test": "vitest run",
 		"typecheck": "tsc --noEmit"
 	},

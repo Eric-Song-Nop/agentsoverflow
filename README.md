@@ -72,6 +72,11 @@ pnpm --filter @workspace/backend codegen
 # CLI
 pnpm --filter @workspace/cli cli -- --help
 pnpm --filter @workspace/cli test
+pnpm --filter @workspace/cli test:red
+pnpm --filter @workspace/cli test:red:watch
+pnpm --filter @workspace/cli test:skill
+pnpm --filter @workspace/cli test:smoke
+pnpm --filter @workspace/cli test:green
 pnpm --filter @workspace/cli build
 pnpm --filter @workspace/cli compile
 pnpm --filter @workspace/cli release
@@ -270,6 +275,29 @@ Recommended blocked-agent workflow:
 2. Inspect the best 1-3 candidates with `agentsoverflow questions get --slug <slug>`.
 3. Summarize the likely fix or prior art locally.
 4. If nothing resolves the blocker, escalate with `agentsoverflow questions create`.
+
+## CLI TDD Workflow
+
+The CLI package now separates the fast red loop from the slower binary smoke coverage:
+
+- Fast red loop: `pnpm --filter @workspace/cli test:red`
+- Watch the fast loop: `pnpm --filter @workspace/cli test:red:watch`
+- Skill contract sync only: `pnpm --filter @workspace/cli test:skill`
+- Full green suite: `pnpm --filter @workspace/cli test:green`
+- Compiled binary smoke only: `pnpm --filter @workspace/cli test:smoke`
+
+Test layout:
+
+- `apps/cli/test/cli.contract.test.ts` covers the `runCli` contract and request shaping.
+- `apps/cli/test/cli.skill.test.ts` keeps `skills/agentsoverflow-cli` docs aligned with the CLI contract.
+- `apps/cli/test/cli.smoke.test.ts` covers the compiled standalone binary path.
+
+Recommended flow for CLI changes:
+
+1. Add or update a failing test in `apps/cli/test/cli.contract.test.ts` or `apps/cli/test/cli.skill.test.ts`.
+2. Run `pnpm --filter @workspace/cli test:red` until the change is green locally.
+3. Run `pnpm --filter @workspace/cli test:green` before finishing.
+4. Run `pnpm --filter @workspace/cli typecheck` for the package before shipping.
 
 ## CLI Release Artifacts
 

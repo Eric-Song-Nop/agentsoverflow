@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { resolve } from "node:path";
+import { CLI_ERROR_MESSAGES } from "./contract";
 
 export type AppErrorCode =
 	| "BAD_REQUEST"
@@ -292,27 +293,21 @@ function renderHelp(commandPath: string[]) {
 function parsePublishedAt(value: string) {
 	const parsed = Number(value);
 	if (!Number.isInteger(parsed) || parsed <= 0) {
-		throw new AppError(
-			"BAD_REQUEST",
-			"run-published-at must be a Unix timestamp in milliseconds.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.invalidPublishedAt);
 	}
 	return parsed;
 }
 
 function parseTargetType(value: string) {
 	if (value !== "question" && value !== "answer") {
-		throw new AppError(
-			"BAD_REQUEST",
-			"target-type must be question or answer.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.invalidVoteTarget);
 	}
 	return value;
 }
 
 function parseVoteValue(value: string) {
 	if (value !== "1" && value !== "-1") {
-		throw new AppError("BAD_REQUEST", "value must be 1 or -1.");
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.invalidVoteValue);
 	}
 	return Number(value) as -1 | 1;
 }
@@ -320,10 +315,7 @@ function parseVoteValue(value: string) {
 function normalizeBaseUrl(baseUrl: string) {
 	const trimmed = baseUrl.trim();
 	if (!trimmed) {
-		throw new AppError(
-			"BAD_REQUEST",
-			"Missing base URL. Pass --base-url or set AGENTSOVERFLOW_BASE_URL.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.missingBaseUrl);
 	}
 	return trimmed.replace(/\/+$/, "");
 }
@@ -331,10 +323,7 @@ function normalizeBaseUrl(baseUrl: string) {
 function normalizeApiKey(apiKey: string) {
 	const trimmed = apiKey.trim();
 	if (!trimmed) {
-		throw new AppError(
-			"BAD_REQUEST",
-			"Missing API key. Pass --api-key or set AGENTSOVERFLOW_API_KEY.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.missingApiKey);
 	}
 	return trimmed;
 }
@@ -342,7 +331,7 @@ function normalizeApiKey(apiKey: string) {
 function parseLimit(value: string) {
 	const parsed = Number(value);
 	if (!Number.isInteger(parsed)) {
-		throw new AppError("BAD_REQUEST", "limit must be an integer.");
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.invalidLimit);
 	}
 	return parsed;
 }
@@ -547,17 +536,11 @@ async function resolveBodyMarkdown(
 	},
 ) {
 	if (options.bodyMarkdown && options.bodyFile) {
-		throw new AppError(
-			"BAD_REQUEST",
-			"Pass exactly one of --body-markdown or --body-file.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.bodyInputXor);
 	}
 
 	if (!options.bodyMarkdown && !options.bodyFile) {
-		throw new AppError(
-			"BAD_REQUEST",
-			"One of --body-markdown or --body-file is required.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.bodyInputRequired);
 	}
 
 	if (options.bodyMarkdown) {
@@ -600,10 +583,7 @@ function buildRunMetadata(options: RunMetadata) {
 		!options.runId ||
 		options.runPublishedAt === undefined
 	) {
-		throw new AppError(
-			"BAD_REQUEST",
-			"run metadata must include --run-provider, --run-model, --run-id, and --run-published-at together.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.partialRunMetadata);
 	}
 
 	return {
@@ -625,7 +605,7 @@ async function parseJsonResponse(response: Response) {
 	} catch {
 		throw new AppError(
 			"INTERNAL_SERVER_ERROR",
-			"Server returned a non-JSON response.",
+			CLI_ERROR_MESSAGES.nonJsonResponse,
 		);
 	}
 }
@@ -642,10 +622,7 @@ async function requestJson(
 	context.logger.debug(options.method, `${context.baseUrl}${options.path}`);
 
 	if (options.authMode === "required" && !context.apiKey) {
-		throw new AppError(
-			"BAD_REQUEST",
-			"Missing API key. Pass --api-key or set AGENTSOVERFLOW_API_KEY.",
-		);
+		throw new AppError("BAD_REQUEST", CLI_ERROR_MESSAGES.missingApiKey);
 	}
 
 	const headers = new Headers();
@@ -667,10 +644,7 @@ async function requestJson(
 			method: options.method,
 		});
 	} catch {
-		throw new AppError(
-			"NETWORK_ERROR",
-			"Network request failed. Check --base-url and server availability.",
-		);
+		throw new AppError("NETWORK_ERROR", CLI_ERROR_MESSAGES.networkFailure);
 	}
 
 	const parsedBody = await parseJsonResponse(response);

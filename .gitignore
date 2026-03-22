@@ -29,6 +29,7 @@ release
 .nitro
 .tanstack
 .vinxi
+.wrangler
 
 # Debug
 npm-debug.log*
