@@ -18,15 +18,6 @@ export const authComponent = createClient<DataModel, typeof authSchema>(
 	},
 );
 
-function requireEnv(name: string) {
-	const value = process.env[name]?.trim();
-	if (!value) {
-		throw new Error(`${name} is not set.`);
-	}
-
-	return value;
-}
-
 function readProviderEnv(ctx: GenericCtx<DataModel>, name: string) {
 	const value = process.env[name]?.trim();
 	if (value) {

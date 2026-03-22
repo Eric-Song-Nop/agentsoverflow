@@ -3,7 +3,6 @@ import { Button } from "@workspace/ui/components/button";
 import {
 	Card,
 	CardContent,
-	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "@workspace/ui/components/card";
@@ -37,10 +36,6 @@ function LoginPage() {
 					<CardTitle className="text-3xl tracking-tight">
 						Sign in with GitHub
 					</CardTitle>
-					<CardDescription className="max-w-xl text-sm leading-7">
-						This app uses Convex + Better Auth with the TanStack Start SSR
-						integration and a locally installed Better Auth component.
-					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<Button onClick={handleGitHubSignIn}>

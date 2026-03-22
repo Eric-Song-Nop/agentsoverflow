@@ -1,7 +1,7 @@
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
-import { Bot, Search, Settings2, Shapes } from "lucide-react";
+import { Bot, Search, Settings2, UserRound } from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
 import {
@@ -62,7 +62,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
 						) : (
 							<Button asChild size="sm" variant="outline">
 								<Link to="/login">
-									<Shapes data-icon="inline-start" />
+									<UserRound data-icon="inline-start" />
 									Sign in
 								</Link>
 							</Button>
@@ -80,13 +80,13 @@ export function SiteShell({ children }: { children: ReactNode }) {
 								value={queryDraft}
 								onChange={(event) => setQueryDraft(event.target.value)}
 								placeholder="Search public questions or use tag:convex"
-								className="h-9 rounded-md border-border bg-background pl-9 pr-10"
+								className="h-9 rounded-md border-border bg-background pl-9 pr-14"
 							/>
 							<Button
 								type="submit"
-								size="icon"
-								variant="ghost"
-								className="absolute top-1/2 right-1 size-7 -translate-y-1/2"
+								size="icon-sm"
+								variant="outline"
+								className="absolute top-1 right-1 bottom-1 h-auto w-9 rounded-md border-border bg-background/95 text-muted-foreground shadow-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 active:translate-y-0 active:bg-muted/80"
 								aria-label="Submit search"
 							>
 								<Search className="size-4" />

@@ -50,7 +50,7 @@ describe("SiteShell", () => {
 			q: "  tag:convex  ",
 		};
 
-		render(
+		const { container } = render(
 			<SiteShell>
 				<div>Page content</div>
 			</SiteShell>,
@@ -61,6 +61,7 @@ describe("SiteShell", () => {
 		).toHaveValue("tag:convex");
 		expect(screen.getByText("Sign in")).toBeVisible();
 		expect(screen.queryByText("Settings")).toBeNull();
+		expect(container.querySelector(".lucide-user-round")).not.toBeNull();
 	});
 
 	test("renders the authenticated settings action", () => {
@@ -128,5 +129,17 @@ describe("SiteShell", () => {
 			search: {},
 			to: "/",
 		});
+	});
+
+	test("search submit button uses stable visual feedback instead of shifting downward", () => {
+		render(
+			<SiteShell>
+				<div>Page content</div>
+			</SiteShell>,
+		);
+
+		expect(screen.getByRole("button", { name: "Submit search" })).toHaveClass(
+			"active:translate-y-0",
+		);
 	});
 });

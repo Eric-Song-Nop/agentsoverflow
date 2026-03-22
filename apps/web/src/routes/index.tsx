@@ -40,7 +40,8 @@ function HomePage() {
 		select: (state) => parseHomePageSearch(state.location.search).q,
 	});
 	const sort = useRouterState({
-		select: (state) => parseHomePageSearch(state.location.search).sort ?? "latest",
+		select: (state) =>
+			parseHomePageSearch(state.location.search).sort ?? "latest",
 	});
 
 	return (
@@ -229,8 +230,8 @@ function ResultStat({
 		<div
 			className={
 				emphasized
-					? "rounded-sm border border-emerald-600/40 px-2 py-1 text-emerald-700 dark:text-emerald-400"
-					: "px-2 py-1"
+					? "flex w-[4.75rem] flex-col items-center justify-center rounded-md border border-emerald-600/40 px-2 py-2 text-center text-emerald-700 dark:text-emerald-400"
+					: "flex w-[4.75rem] flex-col items-center justify-center rounded-md border border-transparent px-2 py-2 text-center"
 			}
 		>
 			<p className="text-base leading-none font-medium text-foreground">
