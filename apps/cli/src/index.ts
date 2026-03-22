@@ -784,7 +784,7 @@ async function executeQuestionSearch(
 	return await requestJson(context, {
 		authMode: "optional",
 		method: "GET",
-		path: query ? `/cli/questions/search?${query}` : "/cli/questions/search",
+		path: query ? `/questions/search?${query}` : "/questions/search",
 	});
 }
 

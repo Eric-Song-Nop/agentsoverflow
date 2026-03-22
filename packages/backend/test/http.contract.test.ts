@@ -297,7 +297,7 @@ describe("CLI HTTP contract", () => {
 		);
 	});
 
-	test("GET /cli/questions/search returns the rewritten summary shape for semantic-first search and remains anonymous-readable", async () => {
+	test("GET /questions/search returns the rewritten summary shape for semantic-first search and remains anonymous-readable", async () => {
 		const t = createTestBackend();
 		const author = await createIdentity(t, "Search Author");
 		const authenticatedReader = await createIdentity(t, "Authenticated Reader");
@@ -385,13 +385,13 @@ describe("CLI HTTP contract", () => {
 				topAnswerScore: number | null;
 				updatedAt: number;
 			}>
-		>(t, "/cli/questions/search?q=agent%20memory&tag=convex&limit=2");
+		>(t, "/questions/search?q=agent%20memory&tag=convex&limit=2");
 		const authenticated = await requestJson<
 			Array<{
 				id: string;
 				slug: string;
 			}>
-		>(t, "/cli/questions/search?q=agent%20memory&tag=convex&limit=2", {
+		>(t, "/questions/search?q=agent%20memory&tag=convex&limit=2", {
 			apiKey: authenticatedReader.apiKey,
 		});
 
@@ -416,13 +416,13 @@ describe("CLI HTTP contract", () => {
 		});
 	});
 
-	test("GET /cli/questions/search rejects the removed legacy sort parameter", async () => {
+	test("GET /questions/search rejects the removed legacy sort parameter", async () => {
 		const t = createTestBackend();
 
 		const response = await requestJson<{
 			code: string;
 			error: string;
-		}>(t, "/cli/questions/search?sort=top");
+		}>(t, "/questions/search?sort=top");
 
 		expectStructuredError(
 			response.payload,
@@ -431,6 +431,55 @@ describe("CLI HTTP contract", () => {
 			"BAD_REQUEST",
 			"sort",
 		);
+	});
+
+	test("GET /questions/search supports operator-only tag queries", async () => {
+		const t = createTestBackend();
+		const author = await createIdentity(t, "Operator HTTP Author");
+
+		await t.mutation(internal.forum.importForumSnapshot, {
+			questions: [
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "Convex public search body.",
+					createdAt: 200,
+					runMetadata: runMetadata("http-operator-convex", 200),
+					slug: "http-operator-convex",
+					sourceId: "http-operator-convex",
+					tagSlugs: ["convex", "search"],
+					title: "HTTP operator convex question",
+					updatedAt: 200,
+				},
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "React public search body.",
+					createdAt: 100,
+					runMetadata: runMetadata("http-operator-react", 100),
+					slug: "http-operator-react",
+					sourceId: "http-operator-react",
+					tagSlugs: ["react", "search"],
+					title: "HTTP operator react question",
+					updatedAt: 100,
+				},
+			],
+		});
+
+		const response = await requestJson<
+			Array<{
+				slug: string;
+				tagSlugs: string[];
+				title: string;
+			}>
+		>(t, "/questions/search?q=tag%3Aconvex");
+
+		expect(response.response.status).toBe(200);
+		expect(response.payload).toEqual([
+			expect.objectContaining({
+				slug: "http-operator-convex",
+				tagSlugs: ["convex", "search"],
+				title: "HTTP operator convex question",
+			}),
+		]);
 	});
 
 	test("GET /cli/questions/:slug returns detail and maps missing slugs to 404s", async () => {
@@ -869,7 +918,7 @@ describe("CLI HTTP contract", () => {
 				slug: string;
 				topAnswerScore: number | null;
 			}>
-		>(t, "/cli/questions/search?q=title:verify&limit=5");
+		>(t, "/questions/search?q=title:verify&limit=5");
 		expect(search.response.status).toBe(200);
 		expect(search.payload).toContainEqual(
 			expect.objectContaining({
@@ -881,4 +930,5 @@ describe("CLI HTTP contract", () => {
 			}),
 		);
 	});
+
 });

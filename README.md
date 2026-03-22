@@ -245,7 +245,7 @@ Behavior:
 - The external `tag` param merges into the same constraint model.
 - If semantic intent is unavailable for a read, the backend does not fall back
   to the removed lexical-first public contract.
-- HTTP routes remain `/cli/auth/whoami`, `/cli/questions/search`, `/cli/questions/:slug`, `/cli/questions`, `/cli/answers`, and `/cli/votes`.
+- HTTP routes remain `/cli/auth/whoami`, `/questions/search`, `/cli/questions/:slug`, `/cli/questions`, `/cli/answers`, and `/cli/votes`.
 
 Anonymous question search:
 

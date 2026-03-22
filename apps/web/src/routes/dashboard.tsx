@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import {
 	Alert,
@@ -31,8 +32,14 @@ import {
 	Trash2,
 	XCircle,
 } from "lucide-react";
-import { useEffect, useEffectEvent, useState } from "react";
-import { authClient } from "../lib/auth-client";
+import { useState } from "react";
+import {
+	apiKeysQueryKey,
+	createApiKey,
+	deleteApiKey,
+	getApiKeysQueryOptions,
+	revokeApiKey,
+} from "../lib/auth-api-keys";
 
 export const Route = createFileRoute("/dashboard")({
 	beforeLoad: ({ context }) => {
@@ -42,14 +49,6 @@ export const Route = createFileRoute("/dashboard")({
 	},
 	component: DashboardPage,
 });
-
-type ApiKeyRecord = {
-	id: string;
-	name: string | null;
-	enabled: boolean;
-	createdAt: Date;
-	lastRequest: Date | null;
-};
 
 type RevealedSecret = {
 	id: string;
@@ -89,113 +88,103 @@ function formatDateTime(value: Date | string | null) {
 	}).format(typeof value === "string" ? new Date(value) : value);
 }
 
-function DashboardPage() {
-	const [apiKeys, setApiKeys] = useState<ApiKeyRecord[]>([]);
+export function DashboardPage() {
+	const queryClient = useQueryClient();
 	const [keyName, setKeyName] = useState("");
 	const [revealedSecret, setRevealedSecret] = useState<RevealedSecret | null>(
 		null,
 	);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
-	const [isHydrated, setIsHydrated] = useState(false);
-	const [isLoadingKeys, setIsLoadingKeys] = useState(false);
-	const [isCreating, setIsCreating] = useState(false);
+	const [clientErrorMessage, setClientErrorMessage] = useState<string | null>(
+		null,
+	);
 	const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
-	const [activeKeyId, setActiveKeyId] = useState<string | null>(null);
 
-	const loadKeys = useEffectEvent(async () => {
-		setIsLoadingKeys(true);
-		setErrorMessage(null);
-		const result = await authClient.apiKey.list({
-			query: {
-				limit: 100,
-				offset: 0,
-			},
-		});
-		setIsLoadingKeys(false);
+	const apiKeysQuery = useQuery({
+		...getApiKeysQueryOptions(),
+		enabled: typeof window !== "undefined",
+	});
+	const createKeyMutation = useMutation({
+		mutationFn: createApiKey,
+		onMutate: () => {
+			setClientErrorMessage(null);
+		},
+		onSuccess: async (result) => {
+			if (result.key) {
+				setRevealedSecret({
+					id: result.id,
+					name: result.name ?? null,
+					key: result.key,
+				});
+			}
 
-		if (result.error) {
-			setErrorMessage(result.error.message ?? "Failed to load API keys.");
-			return;
-		}
-
-		setApiKeys((result.data?.apiKeys ?? []) as unknown as ApiKeyRecord[]);
+			setKeyName("");
+			setIsCreateFormOpen(false);
+			await queryClient.invalidateQueries({
+				queryKey: apiKeysQueryKey,
+			});
+		},
+	});
+	const revokeKeyMutation = useMutation({
+		mutationFn: revokeApiKey,
+		onMutate: () => {
+			setClientErrorMessage(null);
+		},
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({
+				queryKey: apiKeysQueryKey,
+			});
+		},
+	});
+	const deleteKeyMutation = useMutation({
+		mutationFn: deleteApiKey,
+		onMutate: (keyId) => {
+			setClientErrorMessage(null);
+			if (revealedSecret?.id === keyId) {
+				setRevealedSecret(null);
+			}
+		},
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({
+				queryKey: apiKeysQueryKey,
+			});
+		},
 	});
 
-	useEffect(() => {
-		setIsHydrated(true);
-		void loadKeys();
-	}, []);
+	const apiKeys = apiKeysQuery.data ?? [];
+	const activeKeyId = revokeKeyMutation.isPending
+		? revokeKeyMutation.variables
+		: deleteKeyMutation.isPending
+			? deleteKeyMutation.variables
+			: null;
+	const errorMessage =
+		clientErrorMessage ??
+		apiKeysQuery.error?.message ??
+		createKeyMutation.error?.message ??
+		revokeKeyMutation.error?.message ??
+		deleteKeyMutation.error?.message ??
+		null;
 
 	const handleCreateKey = async () => {
-		setIsCreating(true);
-		setErrorMessage(null);
-		const name = keyName.trim();
-		const result = await authClient.apiKey.create({
-			name: name || undefined,
-		});
-		setIsCreating(false);
-
-		if (result.error) {
-			setErrorMessage(result.error.message ?? "Failed to create API key.");
-			return;
-		}
-
-		if (result.data?.key) {
-			setRevealedSecret({
-				id: result.data.id,
-				name: result.data.name ?? null,
-				key: result.data.key,
-			});
-		}
-
-		setKeyName("");
-		setIsCreateFormOpen(false);
-		await loadKeys();
+		await createKeyMutation.mutateAsync(keyName);
 	};
 
 	const handleRevokeKey = async (keyId: string) => {
-		setActiveKeyId(keyId);
-		setErrorMessage(null);
-		const result = await authClient.apiKey.update({
-			keyId,
-			enabled: false,
-		});
-		setActiveKeyId(null);
-
-		if (result.error) {
-			setErrorMessage(result.error.message ?? "Failed to revoke API key.");
-			return;
-		}
-
-		await loadKeys();
+		await revokeKeyMutation.mutateAsync(keyId);
 	};
 
 	const handleDeleteKey = async (keyId: string) => {
-		setActiveKeyId(keyId);
-		setErrorMessage(null);
-		const result = await authClient.apiKey.delete({
-			keyId,
-		});
-		setActiveKeyId(null);
-
-		if (result.error) {
-			setErrorMessage(result.error.message ?? "Failed to delete API key.");
-			return;
-		}
-
-		if (revealedSecret?.id === keyId) {
-			setRevealedSecret(null);
-		}
-
-		await loadKeys();
+		await deleteKeyMutation.mutateAsync(keyId);
 	};
 
 	const handleCopy = async (value: string) => {
 		if (typeof navigator === "undefined" || !navigator.clipboard) {
-			setErrorMessage("Clipboard access is not available in this browser.");
+			setClientErrorMessage(
+				"Clipboard access is not available in this browser.",
+			);
 			return;
 		}
 
+		setClientErrorMessage(null);
 		await navigator.clipboard.writeText(value);
 	};
 
@@ -320,9 +309,9 @@ function DashboardPage() {
 									<Button
 										size="sm"
 										onClick={() => void handleCreateKey()}
-										disabled={isCreating}
+										disabled={createKeyMutation.isPending}
 									>
-										{isCreating ? (
+										{createKeyMutation.isPending ? (
 											<LoaderCircle className="size-3.5 animate-spin" />
 										) : (
 											<KeyRound data-icon="inline-start" />
@@ -336,7 +325,7 @@ function DashboardPage() {
 											setIsCreateFormOpen(false);
 											setKeyName("");
 										}}
-										disabled={isCreating}
+										disabled={createKeyMutation.isPending}
 									>
 										Cancel
 									</Button>
@@ -352,12 +341,12 @@ function DashboardPage() {
 									Existing keys
 								</h2>
 								<p className="text-xs text-muted-foreground">
-									{isHydrated
-										? `${apiKeys.length} key${apiKeys.length === 1 ? "" : "s"}`
-										: "Loading keys"}
+									{apiKeysQuery.isPending
+										? "Loading keys"
+										: `${apiKeys.length} key${apiKeys.length === 1 ? "" : "s"}`}
 								</p>
 							</div>
-							{isLoadingKeys ? (
+							{apiKeysQuery.isPending ? (
 								<LoaderCircle className="size-4 animate-spin text-muted-foreground" />
 							) : null}
 						</div>
@@ -373,7 +362,7 @@ function DashboardPage() {
 							</Alert>
 						) : null}
 
-						{!isLoadingKeys && apiKeys.length === 0 ? (
+						{!apiKeysQuery.isPending && apiKeys.length === 0 ? (
 							<Card size="sm" className="border-dashed">
 								<CardContent>
 									<p className="text-sm text-muted-foreground">

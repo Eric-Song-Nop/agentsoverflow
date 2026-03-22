@@ -151,7 +151,7 @@ const cliWhoAmI = httpAction(async (ctx, request) => {
 	}
 });
 
-const searchCliQuestions = httpAction(async (ctx, request) => {
+const searchQuestions = httpAction(async (ctx, request) => {
 	try {
 		const searchParams = new URL(request.url).searchParams;
 		if (searchParams.has("sort")) {
@@ -241,9 +241,9 @@ http.route({
 });
 
 http.route({
-	path: "/cli/questions/search",
+	path: "/questions/search",
 	method: "GET",
-	handler: searchCliQuestions,
+	handler: searchQuestions,
 });
 
 http.route({

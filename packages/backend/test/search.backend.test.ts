@@ -169,6 +169,198 @@ afterAll(() => {
 });
 
 describe("rewritten search backend", () => {
+	test("lists feed questions in latest and top order", async () => {
+		const t = createTestBackend();
+		const author = await createIdentity(t, "Feed Author");
+
+		await t.mutation(internal.forum.importForumSnapshot, {
+			questions: [
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "Newest question body.",
+					createdAt: 300,
+					runMetadata: runMetadata("feed-newest", 300),
+					slug: "feed-newest",
+					sourceId: "feed-newest",
+					tagSlugs: ["feed"],
+					title: "Newest feed question",
+					updatedAt: 300,
+				},
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "Highest voted question body.",
+					createdAt: 200,
+					runMetadata: runMetadata("feed-top", 200),
+					slug: "feed-top",
+					sourceId: "feed-top",
+					tagSlugs: ["feed"],
+					title: "Top feed question",
+					updatedAt: 200,
+				},
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "Older question body.",
+					createdAt: 100,
+					runMetadata: runMetadata("feed-oldest", 100),
+					slug: "feed-oldest",
+					sourceId: "feed-oldest",
+					tagSlugs: ["feed"],
+					title: "Oldest feed question",
+					updatedAt: 100,
+				},
+			],
+			votes: [
+				{
+					targetSourceId: "feed-top",
+					targetType: "question",
+					value: 1,
+					voterApiKeyId: "feed-voter-1",
+				},
+				{
+					targetSourceId: "feed-top",
+					targetType: "question",
+					value: 1,
+					voterApiKeyId: "feed-voter-2",
+				},
+			],
+		});
+
+		const latest = await t.query(api.forum.listQuestions, {});
+		const top = await t.query(api.forum.listQuestions, {
+			sort: "top",
+		});
+
+		expect(latest.map((question: { slug: string }) => question.slug)).toEqual([
+			"feed-newest",
+			"feed-top",
+			"feed-oldest",
+		]);
+		expect(top.map((question: { slug: string }) => question.slug)).toEqual([
+			"feed-top",
+			"feed-newest",
+			"feed-oldest",
+		]);
+	});
+
+	test("returns detail for a slug and null for a missing question", async () => {
+		const t = createTestBackend();
+		const author = await createIdentity(t, "Detail Query Author");
+
+		await t.mutation(internal.forum.importForumSnapshot, {
+			answers: [
+				{
+					author: importedAuthor(author, "Detail Answer"),
+					bodyMarkdown: "Most helpful answer body.",
+					createdAt: 210,
+					questionSourceId: "detail-query-thread",
+					runMetadata: runMetadata("detail-query-answer", 210),
+					sourceId: "detail-query-answer",
+					updatedAt: 210,
+				},
+			],
+			questions: [
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "Detailed question body.",
+					createdAt: 200,
+					runMetadata: runMetadata("detail-query-thread", 200),
+					slug: "detail-query-thread",
+					sourceId: "detail-query-thread",
+					tagSlugs: ["detail", "query"],
+					title: "Detailed query thread",
+					updatedAt: 200,
+				},
+			],
+			votes: [
+				{
+					targetSourceId: "detail-query-thread",
+					targetType: "question",
+					value: 1,
+					voterApiKeyId: "detail-query-voter-1",
+				},
+				{
+					targetSourceId: "detail-query-answer",
+					targetType: "answer",
+					value: 1,
+					voterApiKeyId: "detail-query-voter-2",
+				},
+			],
+		});
+
+		const detail = await t.query(api.forum.getQuestionDetail, {
+			slug: "detail-query-thread",
+		});
+		const missing = await t.query(api.forum.getQuestionDetail, {
+			slug: "missing-thread",
+		});
+
+		expect(detail).toMatchObject({
+			answerCount: 1,
+			bodyMarkdown: "Detailed question body.",
+			slug: "detail-query-thread",
+			tagSlugs: ["detail", "query"],
+			title: "Detailed query thread",
+			runMetadata: {
+				model: "gpt-5.4",
+				provider: "openai",
+				runId: "detail-query-thread",
+			},
+		});
+		expect(detail?.answers).toHaveLength(1);
+		expect(detail?.answers[0]).toMatchObject({
+			bodyMarkdown: "Most helpful answer body.",
+			runMetadata: {
+				runId: "detail-query-answer",
+			},
+			score: 1,
+		});
+		expect(missing).toBeNull();
+	});
+
+	test("returns the latest feed for an empty search and supports tag-only operators", async () => {
+		const t = createTestBackend();
+		const author = await createIdentity(t, "Operator Feed Author");
+
+		await t.mutation(internal.forum.importForumSnapshot, {
+			questions: [
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "Convex operator body.",
+					createdAt: 200,
+					runMetadata: runMetadata("operator-convex", 200),
+					slug: "operator-convex",
+					sourceId: "operator-convex",
+					tagSlugs: ["convex"],
+					title: "Convex operator question",
+					updatedAt: 200,
+				},
+				{
+					author: importedAuthor(author),
+					bodyMarkdown: "React operator body.",
+					createdAt: 100,
+					runMetadata: runMetadata("operator-react", 100),
+					slug: "operator-react",
+					sourceId: "operator-react",
+					tagSlugs: ["react"],
+					title: "React operator question",
+					updatedAt: 100,
+				},
+			],
+		});
+
+		const defaultSearch = await t.action(api.forum.searchQuestions, {});
+		const tagOnlySearch = await t.action(api.forum.searchQuestions, {
+			q: "tag:convex",
+		});
+
+		expect(
+			defaultSearch.map((question: { slug: string }) => question.slug),
+		).toEqual(["operator-convex", "operator-react"]);
+		expect(
+			tagOnlySearch.map((question: { slug: string }) => question.slug),
+		).toEqual(["operator-convex"]);
+	});
+
 	test("uses semantic-first retrieval for descriptive queries", async () => {
 		const t = createTestBackend();
 		const author = await createIdentity(t, "Semantic Author");

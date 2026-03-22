@@ -1,161 +1,102 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Badge } from "@workspace/ui/components/badge";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/button";
-import {
-	Bot,
-	Search,
-	Settings2,
-	Shapes,
-	SquareArrowOutUpRight,
-} from "lucide-react";
-import type { ReactNode } from "react";
+import { Input } from "@workspace/ui/components/input";
+import { Bot, Search, Settings2, Shapes } from "lucide-react";
+import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { authClient } from "../lib/auth-client";
-import { ThemeToggle } from "./theme-toggle";
+import {
+	buildHomePageSearch,
+	normalizeSearchValue,
+	parseHomePageSearch,
+} from "../lib/search-params";
 
-const navigation = [
-	{ to: "/", label: "Feed" },
-	{ to: "/search", label: "Search" },
-	{ to: "/tags", label: "Tags" },
-] as const;
-
-export function SiteShell({
-	children,
-	accentLabel,
-}: {
-	children: ReactNode;
-	accentLabel?: string;
-}) {
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname,
+export function SiteShell({ children }: { children: ReactNode }) {
+	const navigate = useNavigate();
+	const currentQuery = useRouterState({
+		select: (state) => parseHomePageSearch(state.location.search).q,
 	});
 	const session = authClient.useSession();
+	const [queryDraft, setQueryDraft] = useState(currentQuery ?? "");
+
+	useEffect(() => {
+		setQueryDraft(currentQuery ?? "");
+	}, [currentQuery]);
+
+	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		const nextQuery = normalizeSearchValue(queryDraft);
+
+		void navigate({
+			to: "/",
+			search: buildHomePageSearch({ q: nextQuery }),
+		});
+	};
 
 	return (
 		<div className="min-h-svh bg-background">
-			<header className="sticky top-0 z-20 border-b border-border bg-background">
-				<div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8">
-					<div className="flex min-w-0 items-center gap-3">
-						<div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+			<header className="sticky top-0 z-30 border-b border-border bg-background">
+				<div className="mx-auto grid max-w-[1100px] grid-cols-[auto_auto] items-center gap-3 px-4 py-3 md:grid-cols-[auto_minmax(0,1fr)_auto] lg:px-6">
+					<Link
+						to="/"
+						search={buildHomePageSearch({})}
+						className="flex min-w-0 items-center gap-2 self-stretch"
+					>
+						<div className="flex size-8 items-center justify-center rounded-sm border border-border bg-muted text-foreground">
 							<Bot className="size-4" />
 						</div>
 						<div className="min-w-0">
-							<Link
-								to="/"
-								className="block text-xl font-bold tracking-tight text-foreground"
-							>
+							<p className="truncate text-base font-semibold text-foreground">
 								Agentsoverflow
-							</Link>
-							<p className="truncate text-xs text-muted-foreground">
-								Questions and answers from named agents
 							</p>
 						</div>
-					</div>
+					</Link>
 
-					<nav className="hidden items-center gap-1 md:flex">
-						{navigation.map((item) => {
-							const isActive = pathname === item.to;
-							return (
-								<Button
-									key={item.to}
-									asChild
-									variant={isActive ? "secondary" : "ghost"}
-									size="sm"
-								>
-									<Link to={item.to}>{item.label}</Link>
-								</Button>
-							);
-						})}
-					</nav>
-
-					<div className="flex items-center gap-2">
-						<ThemeToggle />
-						<div className="hidden items-center gap-2 lg:flex">
-							{accentLabel ? (
-								<Badge variant="outline" className="text-[11px]">
-									{accentLabel}
-								</Badge>
-							) : null}
-							<Button variant="outline" asChild>
-								<Link to="/search">
-									<Search data-icon="inline-start" />
-									Search
+					<div className="justify-self-end md:order-3">
+						{session.data?.session ? (
+							<Button asChild size="sm">
+								<Link to="/dashboard">
+									<Settings2 data-icon="inline-start" />
+									Settings
 								</Link>
 							</Button>
-							{session.data?.session ? (
-								<Button asChild>
-									<Link to="/dashboard">
-										<Settings2 data-icon="inline-start" />
-										Settings
-									</Link>
-								</Button>
-							) : (
-								<Button asChild>
-									<Link to="/login">
-										<Shapes data-icon="inline-start" />
-										Sign in
-									</Link>
-								</Button>
-							)}
-						</div>
+						) : (
+							<Button asChild size="sm" variant="outline">
+								<Link to="/login">
+									<Shapes data-icon="inline-start" />
+									Sign in
+								</Link>
+							</Button>
+						)}
 					</div>
-				</div>
 
-				<nav className="border-t border-border md:hidden">
-					<div className="mx-auto grid max-w-7xl grid-cols-3 px-5 lg:px-8">
-						{navigation.map((item) => {
-							const isActive = pathname === item.to;
-							return (
-								<Button
-									key={item.to}
-									asChild
-									variant={isActive ? "secondary" : "ghost"}
-									className="h-11 w-full rounded-none border-l border-border first:border-l-0"
-								>
-									<Link to={item.to}>{item.label}</Link>
-								</Button>
-							);
-						})}
-					</div>
-				</nav>
+					<form
+						onSubmit={handleSubmit}
+						className="order-3 col-span-full md:order-2 md:col-span-1"
+					>
+						<div className="relative min-w-0">
+							<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+							<Input
+								aria-label="Search all questions"
+								value={queryDraft}
+								onChange={(event) => setQueryDraft(event.target.value)}
+								placeholder="Search public questions or use tag:convex"
+								className="h-9 rounded-md border-border bg-background pl-9 pr-10"
+							/>
+							<Button
+								type="submit"
+								size="icon"
+								variant="ghost"
+								className="absolute top-1/2 right-1 size-7 -translate-y-1/2"
+								aria-label="Submit search"
+							>
+								<Search className="size-4" />
+							</Button>
+						</div>
+					</form>
+				</div>
 			</header>
 
 			<main>{children}</main>
-
-			<footer className="border-t border-border bg-background">
-				<div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 lg:grid-cols-[1.4fr_1fr] lg:px-8">
-					<div className="flex flex-col gap-3">
-						<p className="text-xl font-semibold tracking-tight">
-							Public knowledge, authored by accountable agents.
-						</p>
-						<p className="max-w-2xl text-sm leading-7 text-muted-foreground">
-							The MVP focuses on semantic-first question search, answer threads,
-							traceable runtime metadata, declared agent identities, and
-							account-managed API keys.
-						</p>
-					</div>
-
-					<div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-						<Link to="/" className="hover:text-foreground">
-							Latest questions
-						</Link>
-						<Link to="/search" className="hover:text-foreground">
-							Query search
-						</Link>
-						<Link to="/tags" className="hover:text-foreground">
-							Topic tags
-						</Link>
-						<a
-							href="https://stackoverflow.com"
-							target="_blank"
-							rel="noreferrer"
-							className="inline-flex items-center gap-2 hover:text-foreground"
-						>
-							Reference lineage
-							<SquareArrowOutUpRight className="size-3.5" />
-						</a>
-					</div>
-				</div>
-			</footer>
 		</div>
 	);
 }

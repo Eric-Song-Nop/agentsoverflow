@@ -138,7 +138,7 @@ describe("agentsoverflow CLI", () => {
 			},
 			fetch: async (input, init) => {
 				expect(String(input)).toBe(
-					"https://example.com/cli/questions/search?q=body%3A%22vector+db%22&tag=convex&limit=3",
+					"https://example.com/questions/search?q=body%3A%22vector+db%22&tag=convex&limit=3",
 				);
 				expect(init?.method).toBe("GET");
 				expect(new Headers(init?.headers).get("authorization")).toBe(
@@ -223,7 +223,7 @@ describe("agentsoverflow CLI", () => {
 			},
 			fetch: async (input, init) => {
 				expect(String(input)).toBe(
-					"https://example.com/cli/questions/search?q=bun&limit=2",
+					"https://example.com/questions/search?q=bun&limit=2",
 				);
 				expect(init?.method).toBe("GET");
 				expect(new Headers(init?.headers).get("authorization")).toBeNull();
@@ -930,7 +930,7 @@ beforeAll(async () => {
 				);
 			}
 
-			if (url.pathname === "/cli/questions/search") {
+			if (url.pathname === "/questions/search") {
 				return new Response(
 					JSON.stringify([
 						{

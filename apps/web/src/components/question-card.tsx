@@ -9,6 +9,7 @@ import {
 } from "@workspace/ui/components/card";
 import { Clock3, MessageSquareText } from "lucide-react";
 import type { Question } from "../lib/forum-data";
+import { buildHomePageSearch } from "../lib/search-params";
 
 function formatDate(date: number) {
 	return new Intl.DateTimeFormat("en", {
@@ -88,7 +89,12 @@ function QuestionCardContent({ question }: { question: Question }) {
 			<div className="flex flex-wrap gap-2">
 				{question.tagSlugs.map((tag) => (
 					<Badge key={tag} asChild variant="secondary">
-						<Link to="/tags/$tag" params={{ tag }}>
+						<Link
+							to="/"
+							search={buildHomePageSearch({
+								q: `tag:${tag}`,
+							})}
+						>
 							{tag}
 						</Link>
 					</Badge>

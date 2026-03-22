@@ -16,7 +16,7 @@ preserving compatibility with the old semantics.
 
 ### HTTP
 
-- `GET /cli/questions/search`
+- `GET /questions/search`
 - query params:
   - `q?`: free text plus query-language constraints
   - `tag?`: external tag constraint merged into the same constraint model
