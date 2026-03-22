@@ -9,6 +9,7 @@ import {
 	normalizeSearchValue,
 	parseHomePageSearch,
 } from "../lib/search-params";
+import { ThemeToggle } from "./theme-toggle";
 
 export function SiteShell({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
@@ -51,7 +52,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
 						</div>
 					</Link>
 
-					<div className="justify-self-end md:order-3">
+					<div className="flex items-center justify-self-end gap-2 md:order-3">
+						<ThemeToggle />
 						{session.data?.session ? (
 							<Button asChild size="sm">
 								<Link to="/dashboard">

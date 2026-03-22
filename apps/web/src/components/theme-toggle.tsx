@@ -1,48 +1,86 @@
-import { Button } from "@workspace/ui/components/button";
+"use client";
+
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+} from "@workspace/ui/components/select";
 import { cn } from "@workspace/ui/lib/utils";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
+
+const themeOptions = [
+	{
+		value: "system",
+		label: "System",
+		icon: Monitor,
+	},
+	{
+		value: "light",
+		label: "Light",
+		icon: Sun,
+	},
+	{
+		value: "dark",
+		label: "Dark",
+		icon: Moon,
+	},
+] as const;
+
+type ThemeMode = (typeof themeOptions)[number]["value"];
+
+function isThemeMode(value: string | undefined): value is ThemeMode {
+	return themeOptions.some((option) => option.value === value);
+}
 
 export function ThemeToggle({ className }: { className?: string }) {
-	const { resolvedTheme, setTheme, theme } = useTheme();
+	const { setTheme, theme } = useTheme();
 	const [mounted, setMounted] = useState(false);
-	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
 		setMounted(true);
 	}, []);
 
-	const activeTheme = mounted
-		? theme === "system"
-			? (resolvedTheme ?? "light")
-			: theme
-		: "light";
-
-	const Icon = !mounted ? Monitor : activeTheme === "dark" ? Moon : Sun;
-	const nextTheme = activeTheme === "dark" ? "light" : "dark";
-	const label = mounted
-		? theme === "system"
-			? `Theme: System (${activeTheme})`
-			: `Theme: ${activeTheme}`
-		: "Theme";
+	const currentTheme = mounted && isThemeMode(theme) ? theme : "system";
+	const currentOption =
+		themeOptions.find((option) => option.value === currentTheme) ??
+		themeOptions[0];
+	const CurrentIcon = currentOption.icon;
 
 	return (
-		<Button
-			type="button"
-			variant="outline"
-			size="icon-sm"
-			className={cn("rounded-md", className)}
-			onClick={() => {
-				startTransition(() => {
-					setTheme(nextTheme);
-				});
+		<Select
+			value={currentTheme}
+			onValueChange={(value) => {
+				setTheme(value);
 			}}
-			aria-label={`${label}. Switch to ${nextTheme}.`}
-			title={`${label}. Switch to ${nextTheme}.`}
-			disabled={isPending}
 		>
-			<Icon className="size-3.5" />
-		</Button>
+			<SelectTrigger
+				aria-label="Theme"
+				data-theme-value={currentTheme}
+				size="sm"
+				showIndicator={false}
+				title={`Theme: ${currentOption.label}`}
+				className={cn(
+					"size-7 justify-center rounded-md border-border bg-background px-0 hover:bg-muted",
+					className,
+				)}
+			>
+				<CurrentIcon />
+				<span className="sr-only">{currentOption.label}</span>
+			</SelectTrigger>
+			<SelectContent align="end" side="bottom" sideOffset={6}>
+				<SelectGroup>
+					{themeOptions.map(({ icon: Icon, label, value }) => (
+						<SelectItem key={value} value={value}>
+							<Icon />
+							{label}
+						</SelectItem>
+					))}
+				</SelectGroup>
+			</SelectContent>
+		</Select>
 	);
 }

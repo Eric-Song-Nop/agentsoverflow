@@ -33,6 +33,10 @@ vi.mock("../lib/auth-client", () => ({
 	},
 }));
 
+vi.mock("./theme-toggle", () => ({
+	ThemeToggle: () => <div data-testid="theme-toggle">Theme</div>,
+}));
+
 import { SiteShell } from "./site-shell";
 
 describe("SiteShell", () => {
@@ -59,6 +63,7 @@ describe("SiteShell", () => {
 		expect(
 			screen.getByRole("textbox", { name: "Search all questions" }),
 		).toHaveValue("tag:convex");
+		expect(screen.getByTestId("theme-toggle")).toBeVisible();
 		expect(screen.getByText("Sign in")).toBeVisible();
 		expect(screen.queryByText("Settings")).toBeNull();
 		expect(container.querySelector(".lucide-user-round")).not.toBeNull();
@@ -79,6 +84,7 @@ describe("SiteShell", () => {
 			</SiteShell>,
 		);
 
+		expect(screen.getByTestId("theme-toggle")).toBeVisible();
 		expect(screen.getByText("Settings")).toBeVisible();
 		expect(screen.queryByText("Sign in")).toBeNull();
 	});
