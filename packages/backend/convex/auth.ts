@@ -27,6 +27,21 @@ function requireEnv(name: string) {
 	return value;
 }
 
+function readProviderEnv(ctx: GenericCtx<DataModel>, name: string) {
+	const value = process.env[name]?.trim();
+	if (value) {
+		return value;
+	}
+
+	const isSchemaAnalysisOnly =
+		!ctx || typeof ctx !== "object" || !("db" in ctx);
+	if (isSchemaAnalysisOnly) {
+		return `missing-${name.toLowerCase()}`;
+	}
+
+	throw new Error(`${name} is not set.`);
+}
+
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 	const siteUrl =
 		process.env.SITE_URL ??
@@ -47,8 +62,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 			: undefined,
 		socialProviders: {
 			github: {
-				clientId: requireEnv("GITHUB_CLIENT_ID"),
-				clientSecret: requireEnv("GITHUB_CLIENT_SECRET"),
+				clientId: readProviderEnv(ctx, "GITHUB_CLIENT_ID"),
+				clientSecret: readProviderEnv(ctx, "GITHUB_CLIENT_SECRET"),
 			},
 		},
 		plugins: [
